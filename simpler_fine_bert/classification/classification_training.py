@@ -19,12 +19,18 @@ import optuna
 from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
 from simpler_fine_bert.classification.dataset import CSVDataset
 from simpler_fine_bert.common.optuna_manager import OptunaManager
-from simpler_fine_bert.classification.model import ClassificationBert
 from simpler_fine_bert.common.utils import seed_everything as set_seed, create_optimizer, create_scheduler
+
 from simpler_fine_bert.common.config_utils import load_config
+
 from simpler_fine_bert.common.cuda_utils import cuda_manager
 from simpler_fine_bert.common.data_manager import dataloader_manager
 from simpler_fine_bert.classification.classification_trainer import ClassificationTrainer
+
+def get_classification_model():
+    """Get ClassificationBert model at runtime to avoid circular imports."""
+    from simpler_fine_bert.classification.model import ClassificationBert
+    return ClassificationBert
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +112,7 @@ def run_classification_optimization(embedding_model_path: str, config_path: str,
             model_name=embedding_model_path,
             model_type='classification'
             )
-            local_vars['model'] = ClassificationBert(
+            local_vars['model'] = get_classification_model()(
                 config=trial_config, 
                 num_labels=trial_config['model']['num_labels']
             ).to(device)
@@ -246,7 +252,7 @@ def train_final_model(embedding_model_path: str, best_params: Dict[str, Any], co
             model_name=embedding_model_path,
             model_type='classification'
     )
-    model = ClassificationBert(config=config, num_labels=config['model']['num_labels']).to(device)
+    model = get_classification_model()(config=config, num_labels=config['model']['num_labels']).to(device)
 
     # Create datasets
     train_dataset = CSVDataset(

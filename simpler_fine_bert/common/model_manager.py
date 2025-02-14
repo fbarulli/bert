@@ -3,10 +3,9 @@ import torch
 import logging
 from typing import Dict, Any, Optional
 from transformers import PreTrainedModel, BertConfig
-from simpler_fine_bert.model import EmbeddingBert, ClassificationBert
 from transformers.utils import logging as transformers_logging
 from transformers.utils.hub import HFValidationError
-from simpler_fine_bert.cuda_utils import cuda_manager
+from simpler_fine_bert.common.cuda_manager import cuda_manager
 import os
 import gc
 import weakref
@@ -15,6 +14,16 @@ import torch.distributed as dist
 import torch.distributed.rpc as rpc
 
 logger = logging.getLogger(__name__)
+
+def get_embedding_model():
+    """Get EmbeddingBert model at runtime to avoid circular imports."""
+    from simpler_fine_bert.embedding.model import EmbeddingBert
+    return EmbeddingBert
+
+def get_classification_model():
+    """Get ClassificationBert model at runtime to avoid circular imports."""
+    from simpler_fine_bert.classification.model import ClassificationBert
+    return ClassificationBert
 
 class ModelManager:
     _local = threading.local()
@@ -206,12 +215,12 @@ class ModelManager:
 
                     # Create appropriate model based on type
                     if model_type == 'embedding':
-                        model = EmbeddingBert(
+                        model = get_embedding_model()(
                             config=model_config,
                             tie_weights=True
                         )
                     elif model_type == 'classification':
-                        model = ClassificationBert(
+                        model = get_classification_model()(
                             config=model_config,
                             num_labels=config['model']['num_labels']
                         )
@@ -318,3 +327,5 @@ class ModelManager:
             cuda_manager.cleanup()
 
 model_manager = ModelManager()
+
+__all__ = ['ModelManager', 'model_manager']

@@ -8,7 +8,8 @@ import traceback  # for error handling
 from typing import Dict, List, Tuple, Optional, Union, Any
 import numpy.typing as npt
 
-from simpler_fine_bert.cuda_utils import tensor_manager
+from simpler_fine_bert.common.cuda_utils import tensor_manager
+from simpler_fine_bert.common.cuda_manager import cuda_manager
 
 # Configure logging
 logging.basicConfig(
@@ -185,6 +186,103 @@ class InfoNCELoss(nn.Module):
             
         except Exception as e:
             logger.error(f"Error computing InfoNCE loss: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
+
+class SimCSEEmbeddingLoss(nn.Module):
+    """SimCSE loss for learning sentence embeddings.
+    
+    SimCSE uses dropout noise as data augmentation to create positive pairs
+    from the same input sentence. The model processes each input twice with
+    different dropout masks to get two different embeddings of the same sentence.
+    """
+    
+    def __init__(
+        self,
+        temperature: float = 0.05,
+        reduction: str = 'mean',
+        use_amp: bool = True
+    ) -> None:
+        """Initialize SimCSE loss.
+        
+        Args:
+            temperature: Temperature parameter for similarity scaling
+            reduction: Reduction method for loss ('mean' or 'sum')
+            use_amp: Whether to use automatic mixed precision
+        """
+        logger.info("Initializing SimCSE Loss")
+        try:
+            super().__init__()
+            self.temperature = temperature
+            self.reduction = reduction
+            self.use_amp = use_amp
+            logger.info(
+                f"SimCSE Loss initialized with temperature={temperature}, "
+                f"reduction={reduction}, use_amp={use_amp}"
+            )
+        except Exception as e:
+            logger.error(f"Error initializing SimCSE Loss: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
+            
+    def forward(
+        self,
+        embeddings: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None
+    ) -> Dict[str, torch.Tensor]:
+        """Compute SimCSE loss using dropout for positive pairs.
+        
+        Args:
+            embeddings: Input embeddings [batch_size * 2, hidden_size]
+                       First half and second half are embeddings of same sentences
+                       with different dropout masks
+            attention_mask: Optional attention mask [batch_size * 2, seq_len]
+            
+        Returns:
+            Dictionary containing loss and metrics
+        """
+        logger.debug("Computing SimCSE loss")
+        try:
+            # Split embeddings into original and augmented views
+            batch_size = embeddings.size(0) // 2
+            z1, z2 = embeddings[:batch_size], embeddings[batch_size:]
+            
+            # Normalize embeddings
+            with cuda_manager.amp.autocast(enabled=self.use_amp):
+                z1 = F.normalize(z1, dim=1)
+                z2 = F.normalize(z2, dim=1)
+                
+                # Compute similarity matrix
+                sim = torch.matmul(z1, z2.T) / self.temperature
+                
+                # Labels are diagonal (positive pairs)
+                labels = torch.arange(batch_size, device=sim.device)
+                
+                # Compute loss
+                loss = F.cross_entropy(sim, labels)
+                
+                # Compute accuracy
+                pred = sim.argmax(dim=1)
+                acc = (pred == labels).float().mean()
+                
+                # Compute average positive and negative similarities
+                pos_sim = torch.diagonal(sim).mean()
+                neg_sim = (sim.sum() - torch.diagonal(sim).sum()) / (batch_size * (batch_size - 1))
+                
+                metrics = {
+                    'loss': loss,
+                    'accuracy': acc,
+                    'positive_similarity': pos_sim,
+                    'negative_similarity': neg_sim
+                }
+                
+                if self.reduction == 'sum':
+                    metrics['loss'] = metrics['loss'] * batch_size
+                    
+                return metrics
+                
+        except Exception as e:
+            logger.error(f"Error computing SimCSE loss: {str(e)}")
             logger.error(traceback.format_exc())
             raise
 

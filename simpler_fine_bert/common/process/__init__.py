@@ -1,6 +1,5 @@
 from simpler_fine_bert.common.process.process_init import (
     initialize_process,
-    setup_process_environment,
     cleanup_process_resources
 )
 from simpler_fine_bert.common.process.process_utils import (
@@ -15,7 +14,6 @@ from simpler_fine_bert.common.process.process_utils import (
 __all__ = [
     # Process Initialization
     'initialize_process',
-    'setup_process_environment',
     'cleanup_process_resources',
     
     # Process Utilities

@@ -6,7 +6,8 @@ from simpler_fine_bert.common.base_manager import BaseManager
 from simpler_fine_bert.common.amp_manager import amp_manager
 from simpler_fine_bert.common.batch_manager import batch_manager
 from simpler_fine_bert.common.cuda_manager import cuda_manager
-from simpler_fine_bert.common.data_manager import create_dataloaders, dataloader_manager
+from simpler_fine_bert.common.data_manager import data_manager
+from simpler_fine_bert.common.dataloader_manager import dataloader_manager
 from simpler_fine_bert.common.directory_manager import directory_manager
 from simpler_fine_bert.common.metrics_logger import metrics_logger
 from simpler_fine_bert.common.model_manager import model_manager
@@ -61,7 +62,7 @@ __all__ = [
     'amp_manager',
     'batch_manager',
     'cuda_manager',
-    'create_dataloaders',
+    'data_manager',
     'dataloader_manager',
     'directory_manager',
     'metrics_logger',

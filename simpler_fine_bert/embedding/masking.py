@@ -4,8 +4,8 @@ import logging
 from typing import Tuple, Optional, List, Set
 from transformers import PreTrainedTokenizerFast
 
-from simpler_fine_bert.tensor_manager import tensor_manager
-from simpler_fine_bert.tokenizer_manager import tokenizer_manager
+from simpler_fine_bert.common.tensor_manager import tensor_manager
+from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
 
 logger = logging.getLogger(__name__)
 

@@ -6,8 +6,8 @@ import logging
 import optuna
 from optuna.trial import Trial
 
-from simpler_fine_bert.resource_factory import resource_factory
-from simpler_fine_bert.cuda_utils import cuda_manager
+from simpler_fine_bert.common.resource.resource_factory import resource_factory
+from simpler_fine_bert.common.cuda_utils import cuda_manager
 
 logger = logging.getLogger(__name__)
 

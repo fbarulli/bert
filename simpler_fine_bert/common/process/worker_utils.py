@@ -1,4 +1,4 @@
-# simpler_fine_bert/worker_utils.py
+"""Worker process utilities for distributed training."""
 
 import logging
 import os
@@ -11,28 +11,16 @@ import multiprocessing as mp
 from typing import Dict, Any, Optional, Tuple
 import torch
 
-from simpler_fine_bert.cuda_utils import cuda_manager
-from simpler_fine_bert.objective_factory import ObjectiveFactory
+from simpler_fine_bert.common.cuda_utils import cuda_manager
+from simpler_fine_bert.common.study.objective_factory import ObjectiveFactory
+from simpler_fine_bert.common.process.process_init import (
+    initialize_process,
+    cleanup_process_resources
+)
 
 logger = logging.getLogger(__name__)
 
-def cleanup_process_resources():
-    """Clean up all resources for current process."""
-    try:
-        # Clear CUDA cache and move tensors to CPU
-        cuda_manager.cleanup()
-        
-        # Force garbage collection
-        gc.collect()
-        
-        # Clear any remaining CUDA memory
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-        
-        logger.info(f"Cleaned up process resources for PID {os.getpid()}")
-    except Exception as e:
-        logger.error(f"Error during process cleanup: {str(e)}")
+__all__ = ['run_worker']
 
 def run_worker(
     worker_id: int,
@@ -51,7 +39,6 @@ def run_worker(
         out_queue: Queue for sending results
     """
     # Initialize process
-    from simpler_fine_bert.process_init import initialize_process
     current_pid, parent_pid = initialize_process()
     
     logger.info(f"\n=== Worker {worker_id} Starting ===")

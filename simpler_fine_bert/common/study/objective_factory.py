@@ -17,10 +17,14 @@ from torch.optim import Optimizer
 
 from simpler_fine_bert.common.cuda_utils import cuda_manager
 from simpler_fine_bert.common.dataloader_manager import dataloader_manager
-from simpler_fine_bert.common.model_manager import model_manager
 from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
 from simpler_fine_bert.embedding import EmbeddingDataset, EmbeddingTrainer
 from simpler_fine_bert.common.utils import create_optimizer
+
+def get_model_manager():
+    """Get model manager instance at runtime to avoid circular imports."""
+    from simpler_fine_bert.common.model_manager import model_manager
+    return model_manager
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +118,8 @@ class ObjectiveFactory:
                 num_workers=trial_config['data']['num_workers']
             )
 
-            # Create model and optimizer
-            model = model_manager.get_worker_model(
+            # Get model manager and create model
+            model = get_model_manager().get_worker_model(
                 worker_id=trial.number,
                 model_name=trial_config['model']['name'],
                 device_id=device.index if device.type == 'cuda' else None,
@@ -159,7 +163,7 @@ class ObjectiveFactory:
                         del var
                 
                 # Clean up model and tokenizer manager resources
-                model_manager.cleanup_worker(trial.number)
+                get_model_manager().cleanup_worker(trial.number)
                 tokenizer_manager.cleanup_worker(trial.number)
                 
                 # Clean up all process resources in proper order

@@ -10,9 +10,9 @@ import optuna
 from optuna.trial import TrialState
 import multiprocessing as mp
 
-from simpler_fine_bert.study_storage import StudyStorage
-from simpler_fine_bert.study_config import StudyConfig
-from simpler_fine_bert.worker_utils import run_worker
+from simpler_fine_bert.common.study.study_storage import StudyStorage
+from simpler_fine_bert.common.study.study_config import StudyConfig
+from simpler_fine_bert.common.process.worker_utils import run_worker
 
 logger = logging.getLogger(__name__)
 

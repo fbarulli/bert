@@ -15,7 +15,6 @@ import functools
 import gc
 
 from simpler_fine_bert.common.utils import parallel_map, create_memmap_array, load_memmap_array, measure_memory
-from simpler_fine_bert.common.directory_manager import DirectoryManager
 from simpler_fine_bert.common.cuda_utils import cuda_manager
 from simpler_fine_bert.common.tensor_manager import tensor_manager
 from simpler_fine_bert.embedding.masking import SpanMaskingModule
@@ -287,75 +286,3 @@ class EmbeddingDataset(CSVDataset):
         item['labels'] = embedding_labels  # Use 'labels' for consistency
         
         return item
-
-def create_dataloaders(
-    data_path: Path,
-    tokenizer: PreTrainedTokenizerFast,
-    max_length: int,
-    batch_size: int,
-    train_ratio: float = 0.9,
-    is_embedding: bool = True,
-    mask_prob: float = 0.15,
-    max_predictions: int = 20,
-    max_span_length: int = 1,
-    num_workers: int = 4
-) -> Tuple[DataLoader, DataLoader, CSVDataset, CSVDataset]:
-    """Create train and validation dataloaders.
-    
-    Args:
-        data_path: Path to data file
-        tokenizer: Tokenizer to use
-        max_length: Maximum sequence length
-        batch_size: Batch size
-        train_ratio: Ratio of data to use for training
-        is_embedding: Whether to use embedding dataset
-        mask_prob: Masking probability
-        max_predictions: Maximum predictions per sequence
-        num_workers: Number of dataloader workers
-        
-    Returns:
-        Tuple of (train_loader, val_loader, train_dataset, val_dataset)
-    """
-    # Create datasets
-    dataset_class = EmbeddingDataset if is_embedding else CSVDataset
-    dataset_kwargs = {
-        'tokenizer': tokenizer,
-        'max_length': max_length,
-        'train_ratio': train_ratio
-    }
-    if is_embedding:
-        dataset_kwargs.update({
-            'mask_prob': mask_prob,
-            'max_predictions': max_predictions,
-            'max_span_length': max_span_length
-        })
-    
-    train_dataset = dataset_class(
-        data_path=data_path,
-        split='train',
-        **dataset_kwargs
-    )
-    val_dataset = dataset_class(
-        data_path=data_path,
-        split='val',
-        **dataset_kwargs
-    )
-    
-    # Create dataloaders using manager
-    from simpler_fine_bert.common.dataloader_manager import dataloader_manager
-    
-    train_loader = dataloader_manager.create_dataloader(
-        dataset=train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers
-    )
-    
-    val_loader = dataloader_manager.create_dataloader(
-        dataset=val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers
-    )
-    
-    return train_loader, val_loader, train_dataset, val_dataset

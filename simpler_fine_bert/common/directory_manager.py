@@ -133,3 +133,8 @@ class DirectoryManager:
             logger.debug("Cleaned up all temporary files")
         except Exception as e:
             logger.warning(f"Error in cleanup: {e}")
+
+# Create singleton instance
+directory_manager = DirectoryManager(base_dir=Path(os.getcwd()))
+
+__all__ = ['DirectoryManager', 'directory_manager']

@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-from simpler_fine_bert.wandb_manager import WandbManager
-from simpler_fine_bert.cuda_utils import metrics_manager
+from simpler_fine_bert.common.wandb_manager import WandbManager
+from simpler_fine_bert.common.metrics_manager import metrics_manager
 
 logger = logging.getLogger(__name__)
 
@@ -167,3 +167,8 @@ class MetricsLogger:
                 
         except Exception as e:
             logger.warning(f"Error flushing metrics: {e}")
+
+# Create singleton instance
+metrics_logger = MetricsLogger(metrics_dir=None)
+
+__all__ = ['MetricsLogger', 'metrics_logger']
