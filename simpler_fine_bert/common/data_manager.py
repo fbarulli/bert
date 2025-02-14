@@ -100,7 +100,7 @@ class DataManager(BaseManager):
                 data_path=Path(config['data']['csv_path']),
                 tokenizer=tokenizer,
                 split=split,
-                train_ratio=config['data'],
+                train_ratio=float(config['data']['train_ratio']),
                 max_length=config['data']['max_length']
             )
             

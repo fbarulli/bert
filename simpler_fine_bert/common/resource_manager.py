@@ -2,13 +2,15 @@ from __future__ import annotations
 import torch
 import torch.multiprocessing as mp
 from dataclasses import dataclass
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import logging
 import os
 from pathlib import Path
+from torch.utils.data import Dataset, DataLoader
 
 from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
 from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.resource import resource_factory
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,55 @@ class ProcessResourceManager:
         self.resources = {}
         import inspect
         logger.debug(f"DEBUG: ProcessResourceManager.__init__() called in process: {os.getpid()} - caller: {inspect.stack()[1].filename} : {inspect.stack()[1].lineno}")
+
+    def create_datasets(
+        self,
+        config: Dict[str, Any],
+        stage: str = 'embedding',  # 'embedding' or 'classification'
+        world_size: int = 1,
+        rank: int = 0
+    ) -> Tuple[Dataset, Dataset]:
+        """Create train and validation datasets."""
+        train_dataset = resource_factory.create_resource(
+            'dataset', 
+            config,
+            split='train',
+            stage=stage
+        )
+        val_dataset = resource_factory.create_resource(
+            'dataset',
+            config,
+            split='val',
+            stage=stage
+        )
+        return train_dataset, val_dataset
+
+    def create_dataloaders(
+        self,
+        config: Dict[str, Any],
+        train_dataset: Dataset,
+        val_dataset: Dataset,
+        world_size: int = 1,
+        rank: int = 0
+    ) -> Tuple[DataLoader, DataLoader]:
+        """Create train and validation dataloaders."""
+        train_loader = resource_factory.create_resource(
+            'dataloader',
+            config,
+            dataset=train_dataset,
+            split='train',
+            world_size=world_size,
+            rank=rank
+        )
+        val_loader = resource_factory.create_resource(
+            'dataloader',
+            config,
+            dataset=val_dataset,
+            split='val',
+            world_size=world_size,
+            rank=rank
+        )
+        return train_loader, val_loader
 
     def initialize_process(self, process_id: int, device_id: Optional[int] = None) -> None:
         """Initialize resources for this process."""

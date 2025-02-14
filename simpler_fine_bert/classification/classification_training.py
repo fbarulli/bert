@@ -25,6 +25,7 @@ from simpler_fine_bert.common.config_utils import load_config
 
 from simpler_fine_bert.common.cuda_utils import cuda_manager
 from simpler_fine_bert.common.data_manager import dataloader_manager
+from simpler_fine_bert.common.resource_manager import resource_manager
 from simpler_fine_bert.classification.classification_trainer import ClassificationTrainer
 
 def get_classification_model():
@@ -47,21 +48,10 @@ def get_texts_and_labels(config: Dict[str, Any]) -> Tuple[List[int], List[int]]:
         model_type='classification'
     )
     
-    train_dataset = CSVDataset(
-        data_path=config['data']['csv_path'],
-        tokenizer=tokenizer,
-        max_length=int(config['model']['max_length']),
-        split='train',
-        train_ratio=config['data']['train_ratio']
+    train_dataset, val_dataset = resource_manager.create_datasets(
+        config,
+        stage='classification'
     )
-    val_dataset = CSVDataset(
-        data_path=config['data']['csv_path'],
-        tokenizer=tokenizer,
-        max_length=int(config['model']['max_length']),
-        split='val',
-        train_ratio=config['data']['train_ratio']
-    )
-
     train_labels = [train_dataset[i]['label'] for i in range(len(train_dataset)) if 'label' in train_dataset[i]]
     val_labels = [val_dataset[i]['label'] for i in range(len(val_dataset)) if 'label' in val_dataset[i]]
 
@@ -117,35 +107,18 @@ def run_classification_optimization(embedding_model_path: str, config_path: str,
                 num_labels=trial_config['model']['num_labels']
             ).to(device)
             
-            # Create datasets
-            train_dataset = CSVDataset(
-                data_path=config['data']['csv_path'],
-                tokenizer=local_vars['tokenizer'],
-                max_length=int(trial_config['model']['max_length']),
-                split='train',
-                train_ratio=config['data']['train_ratio']
+            # Create datasets and loaders
+            train_dataset, val_dataset = resource_manager.create_datasets(
+                trial_config,
+                stage='classification'
             )
-            val_dataset = CSVDataset(
-                data_path=config['data']['csv_path'],
-                tokenizer=local_vars['tokenizer'],
-                max_length=int(trial_config['model']['max_length']),
-                split='val',
-                train_ratio=config['data']['train_ratio']
+            train_loader, val_loader = resource_manager.create_dataloaders(
+                trial_config,
+                train_dataset,
+                val_dataset
             )
-
-            # Create data loaders
-            local_vars['train_loader'] = dataloader_manager.create_dataloader(
-                dataset=train_dataset,
-                batch_size=16,  # Fixed batch size
-                shuffle=True,
-                num_workers=int(trial_config['training']['num_workers'])
-            )
-            local_vars['val_loader'] = dataloader_manager.create_dataloader(
-                dataset=val_dataset,
-                batch_size=16,  # Fixed batch size
-                shuffle=False,
-                num_workers=int(trial_config['training']['num_workers'])
-            )
+            local_vars['train_loader'] = train_loader
+            local_vars['val_loader'] = val_loader
 
             # Create optimizer and scheduler
             local_vars['optimizer'] = create_optimizer(local_vars['model'], trial_config)
@@ -254,34 +227,15 @@ def train_final_model(embedding_model_path: str, best_params: Dict[str, Any], co
     )
     model = get_classification_model()(config=config, num_labels=config['model']['num_labels']).to(device)
 
-    # Create datasets
-    train_dataset = CSVDataset(
-        data_path=config['data']['csv_path'],
-        tokenizer=tokenizer,
-        max_length=int(config['model']['max_length']),
-        split='train',
-        train_ratio=config['data']['train_ratio']
+    # Create datasets and loaders
+    train_dataset, val_dataset = resource_manager.create_datasets(
+        config,
+        stage='classification'
     )
-    val_dataset = CSVDataset(
-        data_path=config['data']['csv_path'],
-        tokenizer=tokenizer,
-        max_length=int(config['model']['max_length']),
-        split='val',
-        train_ratio=config['data']['train_ratio']
-    )
-
-    # Create data loaders
-    train_loader = dataloader_manager.create_dataloader(
-        dataset=train_dataset,
-        batch_size=16,  # Fixed batch size
-        shuffle=True,
-        num_workers=int(config['training']['num_workers'])
-    )
-    val_loader = dataloader_manager.create_dataloader(
-        dataset=val_dataset,
-        batch_size=16,  # Fixed batch size
-        shuffle=False,
-        num_workers=int(config['training']['num_workers'])
+    train_loader, val_loader = resource_manager.create_dataloaders(
+        config,
+        train_dataset,
+        val_dataset
     )
 
     # Create optimizer and scheduler

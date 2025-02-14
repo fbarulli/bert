@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from transformers import BertConfig
 
 from simpler_fine_bert.common.cuda_utils import cuda_manager
+from simpler_fine_bert.common.resource_manager import resource_manager
+
 from torch.utils.data import Dataset, DataLoader
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,17 @@ def get_embedding_model():
     """Get EmbeddingBert class at runtime to avoid circular imports."""
     from simpler_fine_bert.embedding.model import EmbeddingBert
     return EmbeddingBert
+
+def get_dataset_class(stage: str = 'embedding'):
+    """Get appropriate dataset class based on stage."""
+    if stage == 'embedding':
+        from simpler_fine_bert.embedding.dataset import EmbeddingDataset
+        return EmbeddingDataset
+    elif stage == 'classification':
+        from simpler_fine_bert.classification.dataset import CSVDataset
+        return CSVDataset
+    else:
+        raise ValueError(f"Unknown stage: {stage}")
 
 T = TypeVar('T')
 
@@ -39,7 +52,13 @@ class ResourceFactory:
         'dataset': ResourceType(
             name='dataset',
             description='Dataset resources',
-            factory=lambda config: get_data_manager().create_dataset(config),
+            factory=lambda config, split='train', stage='embedding': get_dataset_class(stage)(
+                data_path=Path(config['data']['csv_path']),
+                tokenizer=get_data_manager().get_tokenizer(config),
+                max_length=config['data']['max_length'],
+                split=split,
+                train_ratio=float(config['data']['train_ratio'])
+            ),
             validator=lambda x: isinstance(x, Dataset)
         ),
         'dataloader': ResourceType(

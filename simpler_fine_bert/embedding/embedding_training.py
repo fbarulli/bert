@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional, Tuple
 from transformers import BertConfig
 
 from simpler_fine_bert.embedding.embedding_trainer import EmbeddingTrainer
+from simpler_fine_bert.common.resource_manager import resource_manager
 from simpler_fine_bert.common.wandb_manager import WandbManager
 from simpler_fine_bert.common.utils import measure_memory, clear_memory
 from simpler_fine_bert.common.resource import resource_factory
@@ -47,22 +48,16 @@ def train_embeddings(
         
         # Create resources through factory
         try:
-            train_dataset = resource_factory.create_resource('dataset', config, split='train')
-            val_dataset = resource_factory.create_resource('dataset', config, split='val')
-            
-            train_loader = resource_factory.create_resource(
-                'dataloader', 
-                config, 
-                dataset=train_dataset,
-                split='train',
+            train_dataset, val_dataset = resource_manager.create_datasets(
+                config,
+                stage='embedding',
                 world_size=world_size,
                 rank=rank
             )
-            val_loader = resource_factory.create_resource(
-                'dataloader',
+            train_loader, val_loader = resource_manager.create_dataloaders(
                 config,
-                dataset=val_dataset,
-                split='val',
+                train_dataset,
+                val_dataset,
                 world_size=world_size,
                 rank=rank
             )
@@ -153,12 +148,16 @@ def validate_embeddings(
         
         # Create resources through factory
         try:
-            val_dataset = resource_factory.create_resource('dataset', val_config, split='val')
-            val_loader = resource_factory.create_resource(
-                'dataloader',
+            _, val_dataset = resource_manager.create_datasets(
                 val_config,
-                dataset=val_dataset,
-                split='val',
+                stage='embedding',
+                world_size=world_size,
+                rank=rank
+            )
+            _, val_loader = resource_manager.create_dataloaders(
+                val_config,
+                None,
+                val_dataset,
                 world_size=world_size,
                 rank=rank
             )

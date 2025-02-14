@@ -22,17 +22,16 @@ from simpler_fine_bert.classification import (
 
 logger = logging.getLogger(__name__)
 
-def train_model(config: Dict[str, Any], output_dir: Optional[str] = None) -> None:
+def train_model(config: Dict[str, Any]) -> None:
     """Train model with proper process isolation."""
     try:
         # Set random seed
         seed_everything(config['training']['seed'])
         
-        # Create output directory
-        if output_dir:
-            output_dir = Path(output_dir)
-            output_dir.mkdir(parents=True, exist_ok=True)
-            
+        # Create output directory from config
+        output_dir = Path(config['output']['dir'])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
         # Train embedding model
         if config['model']['stage'] == 'embedding':
             logger.info("\n=== Starting Embedding Training ===")
@@ -70,16 +69,6 @@ def main():
         storage_manager.storage_dir = Path(config['output']['dir']) / 'storage'
         metrics_manager.initialize(cuda_manager.get_device())
         logger.info("All managers initialized with config")
-        
-        logger.info(f"\n=== Creating {config['model']['stage'].title()} Resources ===")
-        try:
-            # Create dataset through resource factory
-            dataset = resource_factory.create_resource('dataset', config)
-            logger.info(f"Created dataset with {len(dataset)} examples")
-        except Exception as e:
-            logger.error(f"Failed to create resources: {str(e)}")
-            logger.error(traceback.format_exc())
-            raise
         
         logger.info("\n=== Starting Training ===")
         train_model(config)
