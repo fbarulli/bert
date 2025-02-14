@@ -14,9 +14,13 @@ from torch.utils.data.dataloader import default_collate
 import threading
 
 from simpler_fine_bert.common.base_manager import BaseManager
-from simpler_fine_bert.embedding import EmbeddingDataset
 from simpler_fine_bert.common.dataloader_manager import dataloader_manager
 from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
+
+def get_embedding_dataset():
+    """Get EmbeddingDataset class at runtime to avoid circular imports."""
+    from simpler_fine_bert.embedding import EmbeddingDataset
+    return EmbeddingDataset
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +44,7 @@ class DataManager(BaseManager):
     def _create_datasets(
         self,
         config: Dict[str, Any]
-    ) -> Tuple[EmbeddingDataset, EmbeddingDataset]:
+    ) -> Tuple[Any, Any]:
         """Create train and validation datasets."""
         try:
             # Get tokenizer through manager
@@ -52,6 +56,7 @@ class DataManager(BaseManager):
             # Create datasets with shared memory tensors
             data_path = Path(config['data']['csv_path'])
             
+            EmbeddingDataset = get_embedding_dataset()
             train_dataset = EmbeddingDataset(
                 data_path=data_path,
                 tokenizer=tokenizer,
@@ -82,8 +87,8 @@ class DataManager(BaseManager):
 
     def _create_dataloaders(
         self,
-        train_dataset: EmbeddingDataset,
-        val_dataset: EmbeddingDataset,
+        train_dataset: Any,
+        val_dataset: Any,
         config: Dict[str, Any],
         world_size: int = 1,
         rank: int = 0
@@ -206,8 +211,8 @@ class DataManager(BaseManager):
         """Validate that all required resources exist and are of correct type."""
         required = {
             'tokenizer': PreTrainedTokenizerFast,
-            'train_dataset': EmbeddingDataset,
-            'val_dataset': EmbeddingDataset,
+            'train_dataset': get_embedding_dataset(),
+            'val_dataset': get_embedding_dataset(),
             'train_loader': DataLoader,
             'val_loader': DataLoader
         }

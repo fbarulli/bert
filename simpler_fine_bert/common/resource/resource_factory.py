@@ -4,11 +4,15 @@ from typing import Dict, Any, Optional
 import logging
 from pathlib import Path
 
-from simpler_fine_bert.common.data_manager import data_manager
 from simpler_fine_bert.common.cuda_utils import cuda_manager
 from torch.utils.data import Dataset, DataLoader
 
 logger = logging.getLogger(__name__)
+
+def get_data_manager():
+    """Get data manager instance at runtime to avoid circular imports."""
+    from simpler_fine_bert.common.data_manager import data_manager
+    return data_manager
 
 class ResourceFactory:
     """Factory for creating process-local resources."""
@@ -24,8 +28,8 @@ class ResourceFactory:
             # Get process-specific device
             device = cuda_manager.get_device(device_id if device_id is not None else 0)
             
-            # Create data resources
-            data_resources = data_manager.create_process_resources(config)
+            # Get data manager and create resources
+            data_resources = get_data_manager().create_process_resources(config)
             
             return {
                 'device': device,

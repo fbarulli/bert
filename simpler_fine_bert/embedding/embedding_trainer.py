@@ -4,12 +4,16 @@ import logging
 import torch
 from typing import Dict, Any, Optional
 from torch.utils.data import DataLoader
-from simpler_fine_bert.common.base_trainer import BaseTrainer
 from simpler_fine_bert.common.metrics_manager import metrics_manager
 
 logger = logging.getLogger(__name__)
 
-class EmbeddingTrainer(BaseTrainer):
+# Import BaseTrainer at runtime to avoid circular import
+def get_base_trainer():
+    from simpler_fine_bert.common.base_trainer import BaseTrainer
+    return BaseTrainer
+
+class EmbeddingTrainer(get_base_trainer()):
     """Trainer for learning embeddings through masked language modeling."""
     
     def __init__(
@@ -27,7 +31,7 @@ class EmbeddingTrainer(BaseTrainer):
         val_dataset: Optional['Dataset'] = None
     ) -> None:
         """Initialize embedding trainer."""
-        # Create metrics directory before super().__init__
+        # Create metrics directory before initialization
         self.max_grad_norm = config['training']['max_grad_norm']
         super().__init__(
             model=model,
@@ -43,7 +47,8 @@ class EmbeddingTrainer(BaseTrainer):
             val_dataset=val_dataset
         )
         self.best_embedding_loss = float('inf')
-        self._optimizer = optimizer
+        # Create optimizer
+        self._optimizer = self.create_optimizer()
         
         # Scale learning rate based on batch size
         base_batch_size = 32  # Standard BERT batch size
