@@ -8,7 +8,7 @@ import traceback
 from typing import Dict, Any, Optional
 from contextlib import contextmanager
 
-from simpler_fine_bert.common.base_manager import BaseManager
+from simpler_fine_bert.common.managers.base_manager import BaseManager
 
 logger = logging.getLogger(__name__)
 

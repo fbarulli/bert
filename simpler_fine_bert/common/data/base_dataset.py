@@ -15,7 +15,7 @@ import functools
 import gc
 
 from simpler_fine_bert.common.utils import parallel_map, create_memmap_array, load_memmap_array, measure_memory
-from simpler_fine_bert.common import get_tensor_manager
+from simpler_fine_bert.common.managers import get_tensor_manager
 
 logger = logging.getLogger(__name__)
 

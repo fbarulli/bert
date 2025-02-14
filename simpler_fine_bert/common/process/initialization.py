@@ -21,9 +21,14 @@ def initialize_worker(worker_id: int) -> None:
         logger.info(f"Initializing worker {worker_id} (PID: {os.getpid()})")
         
         # Import managers at runtime to avoid circular imports
-        from simpler_fine_bert.common.cuda_manager import cuda_manager
-        from simpler_fine_bert.common.amp_manager import amp_manager
-        from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+        from simpler_fine_bert.common.managers import (
+            get_cuda_manager,
+            get_amp_manager,
+            get_tokenizer_manager
+        )
+        cuda_manager = get_cuda_manager()
+        amp_manager = get_amp_manager()
+        tokenizer_manager = get_tokenizer_manager()
         from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
         
         # Initialize CUDA first
@@ -72,13 +77,19 @@ def initialize_process() -> Tuple[int, int]:
             except RuntimeError as e:
                 logger.warning(f"Could not set spawn method: {e}")
         
-        # Import and initialize CUDA first
-        from simpler_fine_bert.common.cuda_manager import cuda_manager
+        # Import managers at runtime to avoid circular imports
+        from simpler_fine_bert.common.managers import (
+            get_cuda_manager,
+            get_amp_manager
+        )
+        
+        # Initialize CUDA first
+        cuda_manager = get_cuda_manager()
         cuda_manager.ensure_initialized()
         logger.debug(f"CUDA initialized for process {current_pid}")
         
-        # Import and initialize AMP right after CUDA
-        from simpler_fine_bert.common.amp_manager import amp_manager
+        # Initialize AMP right after CUDA
+        amp_manager = get_amp_manager()
         amp_manager.ensure_initialized()
         logger.debug(f"AMP initialized for process {current_pid}")
         

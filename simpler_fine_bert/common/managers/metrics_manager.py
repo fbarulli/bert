@@ -6,8 +6,8 @@ import torch.nn as nn
 from typing import Dict, Any, Optional, List
 import math
 
-from simpler_fine_bert.common.base_manager import BaseManager
-from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.managers.base_manager import BaseManager
+from simpler_fine_bert.common.managers import get_cuda_manager
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,9 @@ class MetricsManager(BaseManager):
         # Call parent's initialization first
         super()._initialize_process_local(config)
         
+        # Get cuda_manager at runtime
+        cuda_manager = get_cuda_manager()
+        
         # Initialize cuda_manager first since we depend on it
         cuda_manager.ensure_initialized()
         self._local.device = None
@@ -28,6 +31,7 @@ class MetricsManager(BaseManager):
         """Get current device."""
         self.ensure_initialized()
         if self._local.device is None:
+            cuda_manager = get_cuda_manager()
             if cuda_manager.is_available():
                 self._local.device = torch.device('cuda')
             else:

@@ -5,7 +5,7 @@ import traceback
 from typing import Optional, Dict, Any
 from contextlib import contextmanager
 
-from simpler_fine_bert.common.base_manager import BaseManager
+from simpler_fine_bert.common.managers.base_manager import BaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,8 @@ class AMPManager(BaseManager):
             super()._initialize_process_local(config)
             
             # Import cuda_manager at runtime
-            from simpler_fine_bert.common.cuda_manager import cuda_manager
+            from simpler_fine_bert.common.managers import get_cuda_manager
+            cuda_manager = get_cuda_manager()
             
             # Verify CUDA is initialized
             if not cuda_manager.is_initialized():

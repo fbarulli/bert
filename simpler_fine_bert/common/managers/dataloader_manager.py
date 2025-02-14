@@ -7,8 +7,8 @@ import traceback
 from typing import Any, Optional, Dict, Callable
 from torch.utils.data import Dataset, DataLoader
 
-from simpler_fine_bert.common.base_manager import BaseManager
-from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.managers.base_manager import BaseManager
+from simpler_fine_bert.common.managers import get_cuda_manager
 from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
 from simpler_fine_bert.common.process.initialization import get_worker_init_fn
 
@@ -31,12 +31,16 @@ class DataLoaderManager(BaseManager):
             if not hasattr(self._local, 'pin_memory'):
                 self._local.pin_memory = False  # Safe default
                 
+            # Get cuda_manager at runtime
+            cuda_manager = get_cuda_manager()
+            
             # Ensure cuda_manager is initialized
             if not hasattr(cuda_manager._local, 'initialized'):
                 cuda_manager.initialize()
                 
             # Update pin_memory based on CUDA availability
             try:
+                cuda_manager = get_cuda_manager()
                 self._local.pin_memory = cuda_manager.is_available()
             except Exception as e:
                 logger.warning(f"Could not check CUDA availability, defaulting pin_memory to False: {e}")
@@ -146,6 +150,7 @@ class DataLoaderManager(BaseManager):
             self._local.num_workers = num_workers
             if pin_memory is not None:
                 # Only enable pin_memory if CUDA is available
+                cuda_manager = get_cuda_manager()
                 self._local.pin_memory = pin_memory and cuda_manager.is_available()
                 
             logger.debug(

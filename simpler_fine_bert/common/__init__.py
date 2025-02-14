@@ -1,7 +1,7 @@
 """Common utilities and components."""
 
 # Direct imports that don't cause circular dependencies
-from simpler_fine_bert.common.base_manager import BaseManager
+from simpler_fine_bert.common.managers.base_manager import BaseManager
 from simpler_fine_bert.common.utils import (
     setup_logging,
     seed_everything,
@@ -10,70 +10,28 @@ from simpler_fine_bert.common.utils import (
     clear_memory
 )
 
-# Lazy imports for everything else
+# Import all manager getters
+from simpler_fine_bert.common.managers import (
+    get_amp_manager,
+    get_batch_manager,
+    get_cuda_manager,
+    get_data_manager,
+    get_dataloader_manager,
+    get_directory_manager,
+    get_metrics_manager,
+    get_model_manager,
+    get_parameter_manager,
+    get_resource_manager,
+    get_storage_manager,
+    get_tensor_manager,
+    get_tokenizer_manager,
+    get_worker_manager
+)
+
+# Base trainer getter
 def get_base_trainer():
     from simpler_fine_bert.common.base_trainer import BaseTrainer
     return BaseTrainer
-
-def get_amp_manager():
-    from simpler_fine_bert.common.amp_manager import amp_manager
-    return amp_manager
-
-def get_batch_manager():
-    from simpler_fine_bert.common.batch_manager import batch_manager
-    return batch_manager
-
-def get_cuda_manager():
-    from simpler_fine_bert.common.cuda_manager import cuda_manager
-    return cuda_manager
-
-def get_data_manager():
-    from simpler_fine_bert.common.data_manager import data_manager
-    return data_manager
-
-def get_dataloader_manager():
-    from simpler_fine_bert.common.dataloader_manager import dataloader_manager
-    return dataloader_manager
-
-def get_directory_manager():
-    from simpler_fine_bert.common.directory_manager import directory_manager
-    return directory_manager
-
-def get_metrics_logger():
-    from simpler_fine_bert.common.metrics_logger import metrics_logger
-    return metrics_logger
-
-def get_model_manager():
-    from simpler_fine_bert.common.model_manager import model_manager
-    return model_manager
-
-def get_optuna_manager():
-    from simpler_fine_bert.common.optuna_manager import OptunaManager
-    return OptunaManager
-
-def get_parameter_manager():
-    from simpler_fine_bert.common.parameter_manager import parameter_manager
-    return parameter_manager
-
-def get_resource_manager():
-    from simpler_fine_bert.common.resource_manager import resource_manager
-    return resource_manager
-
-def get_storage_manager():
-    from simpler_fine_bert.common.storage_manager import storage_manager
-    return storage_manager
-
-def get_tokenizer_manager():
-    from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
-    return tokenizer_manager
-
-def get_wandb_manager():
-    from simpler_fine_bert.common.wandb_manager import WandbManager
-    return WandbManager
-
-def get_worker_manager():
-    from simpler_fine_bert.common.worker_manager import worker_manager
-    return worker_manager
 
 # Study components
 def get_study_components():
@@ -147,14 +105,13 @@ __all__ = [
     'get_data_manager',
     'get_dataloader_manager',
     'get_directory_manager',
-    'get_metrics_logger',
+    'get_metrics_manager',
     'get_model_manager',
-    'get_optuna_manager',
     'get_parameter_manager',
     'get_resource_manager',
     'get_storage_manager',
+    'get_tensor_manager',
     'get_tokenizer_manager',
-    'get_wandb_manager',
     'get_worker_manager',
     
     # Study

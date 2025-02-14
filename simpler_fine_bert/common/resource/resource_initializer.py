@@ -8,7 +8,7 @@ import torch.multiprocessing as mp
 from typing import Dict, Any, Optional, List, Type, Set
 from dataclasses import dataclass, field
 
-from simpler_fine_bert.common.base_manager import BaseManager
+from simpler_fine_bert.common.managers.base_manager import BaseManager
 from simpler_fine_bert.common.cuda_utils import (
     is_cuda_available,
     clear_cuda_memory,
@@ -35,13 +35,23 @@ class ResourceInitializer:
     def _get_manager_dependencies(cls) -> Dict[Type[BaseManager], ManagerDependency]:
         """Get manager dependencies lazily to avoid circular imports."""
         # Import managers at runtime to avoid circular imports
-        from simpler_fine_bert.common.cuda_manager import cuda_manager
-        from simpler_fine_bert.common.tensor_manager import tensor_manager
-        from simpler_fine_bert.common.batch_manager import batch_manager
-        from simpler_fine_bert.common.metrics_manager import metrics_manager
-        from simpler_fine_bert.common.amp_manager import amp_manager
-        from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
-        from simpler_fine_bert.common.dataloader_manager import dataloader_manager
+        from simpler_fine_bert.common.managers import (
+            get_cuda_manager,
+            get_tensor_manager,
+            get_batch_manager,
+            get_metrics_manager,
+            get_amp_manager,
+            get_tokenizer_manager,
+            get_dataloader_manager
+        )
+        
+        cuda_manager = get_cuda_manager()
+        tensor_manager = get_tensor_manager()
+        batch_manager = get_batch_manager()
+        metrics_manager = get_metrics_manager()
+        amp_manager = get_amp_manager()
+        tokenizer_manager = get_tokenizer_manager()
+        dataloader_manager = get_dataloader_manager()
         
         # Define dependencies using manager classes
         return {
@@ -107,8 +117,9 @@ class ResourceInitializer:
     def _initialize_cuda_and_amp(cls, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize CUDA and AMP first."""
         # Import managers at runtime
-        from simpler_fine_bert.common.cuda_manager import cuda_manager
-        from simpler_fine_bert.common.amp_manager import amp_manager
+        from simpler_fine_bert.common.managers import get_cuda_manager, get_amp_manager
+        cuda_manager = get_cuda_manager()
+        amp_manager = get_amp_manager()
         
         # Initialize CUDA first
         if is_cuda_available():
@@ -168,8 +179,9 @@ class ResourceInitializer:
             cls._initialize_cuda_and_amp(config)
             
             # Import managers at runtime
-            from simpler_fine_bert.common.cuda_manager import cuda_manager
-            from simpler_fine_bert.common.amp_manager import amp_manager
+            from simpler_fine_bert.common.managers import get_cuda_manager, get_amp_manager
+            cuda_manager = get_cuda_manager()
+            amp_manager = get_amp_manager()
             
             # Mark CUDA and AMP as initialized
             dependencies[cuda_manager.__class__].initialized = True

@@ -1,6 +1,26 @@
+"""Root package initialization."""
+
 # Common utilities
 from simpler_fine_bert.common.config_utils import load_config
 from simpler_fine_bert.common.utils import setup_logging, seed_everything, create_optimizer
+
+# Manager access
+from simpler_fine_bert.common.managers import (
+    get_amp_manager,
+    get_batch_manager,
+    get_cuda_manager,
+    get_data_manager,
+    get_dataloader_manager,
+    get_directory_manager,
+    get_metrics_manager,
+    get_model_manager,
+    get_parameter_manager,
+    get_resource_manager,
+    get_storage_manager,
+    get_tensor_manager,
+    get_tokenizer_manager,
+    get_worker_manager
+)
 
 # Embedding components
 from simpler_fine_bert.embedding import (
@@ -30,6 +50,22 @@ __all__ = [
     'setup_logging',
     'seed_everything',
     'create_optimizer',
+    
+    # Managers
+    'get_amp_manager',
+    'get_batch_manager',
+    'get_cuda_manager',
+    'get_data_manager',
+    'get_dataloader_manager',
+    'get_directory_manager',
+    'get_metrics_manager',
+    'get_model_manager',
+    'get_parameter_manager',
+    'get_resource_manager',
+    'get_storage_manager',
+    'get_tensor_manager',
+    'get_tokenizer_manager',
+    'get_worker_manager',
     
     # Embedding
     'EmbeddingBert',

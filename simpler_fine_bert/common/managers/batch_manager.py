@@ -5,9 +5,8 @@ import traceback
 from typing import Dict, Any, Optional, Union
 from torch.utils.data import DataLoader
 
-from simpler_fine_bert.common.base_manager import BaseManager
-from simpler_fine_bert.common.cuda_manager import cuda_manager
-from simpler_fine_bert.common.tensor_manager import tensor_manager
+from simpler_fine_bert.common.managers.base_manager import BaseManager
+from simpler_fine_bert.common.managers import get_cuda_manager, get_tensor_manager
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +17,10 @@ class BatchManager(BaseManager):
         """Initialize process-local attributes."""
         # Call parent's initialization first
         super()._initialize_process_local(config)
+        
+        # Get managers at runtime
+        cuda_manager = get_cuda_manager()
+        tensor_manager = get_tensor_manager()
         
         # Initialize dependencies
         cuda_manager.ensure_initialized()
@@ -35,6 +38,7 @@ class BatchManager(BaseManager):
         self.ensure_initialized()
         try:
             if device is None:
+                cuda_manager = get_cuda_manager()
                 device = cuda_manager.get_device()
                 
             # Move each tensor to device
