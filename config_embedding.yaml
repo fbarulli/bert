@@ -1,0 +1,128 @@
+# config_embedding.yaml
+
+# Top-level sections
+training:
+  seed: 42
+  num_epochs: 3
+  batch_size: 16 # DO NOT CHANGE
+  debug_logging: true  # Enable debug logs for masking and other operations
+  save_every_n_epochs: 1
+  save_top_k: 3
+  gradient_accumulation_steps: 2  # Increased to simulate larger batch size
+  logging_steps: 100
+  eval_steps: 200
+  early_stopping_patience: 5
+  early_stopping_min_delta: 0.001
+  max_grad_norm: 1.0
+  num_trials: 10
+  n_jobs: 1
+  n_startup_trials: 5
+  study_name: "embedding_study"
+  num_workers: 2
+  fp16: True
+  log_every_n_steps: 100
+  optimizer_type: "adamw"      # Optimizer type (adamw, adam, sgd)
+  
+  # Profiling configuration
+  profiler:
+    enabled: false  # Disabled to focus on training
+    activities: ["cpu", "cuda"]  # What to profile
+    schedule:
+      wait: 2       # Number of steps to wait before profiling
+      warmup: 2     # Number of steps to warmup
+      active: 6     # Number of steps to profile
+      repeat: 1     # Number of times to repeat profiling cycle
+    record_shapes: true      # Record tensor shapes
+    profile_memory: true     # Profile memory usage
+    with_stack: true        # Record stack traces
+    with_flops: true        # Estimate FLOPs
+    export_chrome_trace: true  # Export Chrome trace for visualization
+    
+  # CUDA graph configuration
+  cuda_graph:
+    enabled: false  # Enable/disable CUDA graphs
+    warmup_steps: 10  # Steps to warm up before capturing graph
+    static_shapes: true  # Use static shapes for inputs
+    batch_size: null  # Use training batch size if null
+    capture_stream: null  # Use default CUDA stream if null
+    
+  # Distributed training configuration
+  distributed:
+    enabled: false  # Enable/disable distributed training
+    backend: "nccl"  # DDP backend (nccl for GPU, gloo for CPU)
+    world_size: -1  # Number of processes (-1 for auto-detect)
+    rank: -1  # Global rank of this process (-1 for auto-detect)
+    local_rank: -1  # Local rank on this node (-1 for auto-detect)
+    init_method: "env://"  # Process group initialization method
+    timeout: 1800  # Timeout in seconds for operations
+    find_unused_parameters: false  # Find unused parameters in DDP
+  learning_rate: 5.0e-5        # Increased base learning rate for small batch
+  weight_decay: 0.01          # Standard BERT weight decay
+  warmup_ratio: 0.06          # Standard BERT warmup ratio (6% of steps)
+  hidden_dropout_prob: 0.1     # Default hidden dropout (standard BERT default)
+  attention_probs_dropout_prob: 0.1  # Default attention dropout (standard BERT default)
+
+  # Scheduler subsection
+  scheduler:
+    type: "linear"  # Standard BERT scheduler
+    warmup_ratio: 0.06  # Match training warmup_ratio
+    min_lr_ratio: 0.0
+    use_scheduler: True
+    num_cycles: 0.5 # For cosine_with_restarts
+
+data:
+  csv_path: "sample_m.csv"  # do not change
+  train_ratio: 0.8
+  max_length: 512
+  embedding_mask_probability: 0.15  # Standard BERT masking probability
+  max_predictions: 20
+  max_span_length: 1          # Single token masking for now
+  num_workers: 0 # Added num_workers
+
+model:
+  name: "bert-base-uncased"
+  type: "pretrained"
+
+hyperparameters:
+  learning_rate:
+    type: "log"
+    min: 1.0e-5
+    max: 5.0e-5
+  weight_decay:
+    type: "float"
+    min: 0.0
+    max: 0.1
+  warmup_ratio:
+    type: "float"
+    min: 0.0
+    max: 0.2
+  embedding_mask_probability:
+    type: "float"
+    min: 0.1
+    max: 0.3
+  max_span_length:
+      type: "int"
+      min: 1
+      max: 5
+  hidden_dropout_prob:
+    type: "float"
+    min: 0.0
+    max: 0.3
+  attention_probs_dropout_prob:
+    type: "float"
+    min: 0.0
+    max: 0.3
+
+# Added resources section
+resources:
+  max_memory_gb: 22.5 # DO NOT CHANGE
+  garbage_collection_threshold: 0.7
+  max_split_size_mb: 2048
+  max_time_hours: 24
+  cache_cleanup_days: 7
+
+output:
+  dir: "outputs"
+  save_model: true
+  save_optimizer: false
+  save_scheduler: false

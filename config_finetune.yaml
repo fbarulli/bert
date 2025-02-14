@@ -1,0 +1,77 @@
+model:
+  name: "bert-base-uncased"
+  type: "classification"
+  hidden_size: null  # Use BERT's hidden size
+  dropout_rate: 0.1
+
+seed: 42  # Add this line at root level
+
+# do not change data path
+data:
+  csv_path: "sample.csv"  # Path to source CSV file
+  train_ratio: 0.9  # Ratio of data to use for training
+  max_length: 512
+  num_workers: 4
+
+
+# do not change training parameters
+training:
+  num_epochs: 1
+  batch_size: 16  # Base size, adjusted by dynamic batching
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  adam_epsilon: 1.0e-8
+  warmup_ratio: 0.1
+  log_every_n_steps: 100  # Add this line
+  scheduler:
+    type: "linear"
+    warmup_ratio: 0.1
+    min_lr_ratio: 0.0
+    use_scheduler: true
+    num_cycles: 0.5  # Only used for cosine scheduler
+  fp16: true  # Make explicit
+  max_grad_norm: 1.0
+  num_trials: 10
+  n_jobs: 4  # Number of parallel training jobs
+  n_startup_trials: 4  # Number of random trials before optimization
+  early_stopping_patience: 3
+  early_stopping_min_delta: 1e-4
+  evaluation_strategy: "steps"
+  eval_steps: 100
+
+output:
+  dir: "outputs/finetune"  # Output directory for finetuning
+  wandb:
+    enabled: false
+    project: "bert_mlm_class"
+    api_key: "6d8b76b5019f1abc6a2e78a467ce9232a7fa80b5"
+    tags: ["classification", "bert"]
+
+resources:
+  max_memory_gb: 22.0
+  garbage_collection_threshold: 0.8  # Add this line
+  max_split_size_mb: 128  # Add this line
+  cache_cleanup_days: 1.0  # Clean cache files older than 7 days
+
+hyperparameters:
+  learning_rate:
+    min: 1.0e-5
+    max: 5.0e-5
+    type: "log"
+  weight_decay:
+    min: 0.0
+    max: 0.3
+    type: "float"
+  warmup_ratio:
+    min: 0.0
+    max: 0.2
+    type: "float"
+  dropout:
+    min: 0.1
+    max: 0.5
+    type: "float"
+  hidden_size:
+    min: 64
+    max: 768
+    type: "int"
+    step: 64
