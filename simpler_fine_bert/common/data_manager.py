@@ -9,7 +9,6 @@ from pathlib import Path
 from filelock import FileLock
 from typing import Dict, Any, Tuple
 from transformers import PreTrainedTokenizerFast
-from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
 from torch.utils.data.dataloader import default_collate
 import threading
 
@@ -22,6 +21,11 @@ def get_embedding_dataset():
     from simpler_fine_bert.embedding import EmbeddingDataset
     return EmbeddingDataset
 
+def get_tokenizer_manager():
+    """Get tokenizer manager instance at runtime to avoid circular imports."""
+    from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+    return tokenizer_manager
+
 logger = logging.getLogger(__name__)
 
 class DataManager(BaseManager):
@@ -30,6 +34,32 @@ class DataManager(BaseManager):
     _shared_datasets = {}
     _lock = threading.Lock()
     
+    def get_tokenizer(self, config: Dict[str, Any]) -> 'PreTrainedTokenizerFast':
+        """Get tokenizer for the current process.
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            Tokenizer instance
+            
+        Raises:
+            RuntimeError: If tokenizer creation fails
+        """
+        try:
+            worker_id = os.getpid()
+            tokenizer = get_tokenizer_manager().get_worker_tokenizer(
+                worker_id=worker_id,
+                model_name=config['model']['name'],
+                model_type=config['model'].get('type', 'embedding')
+            )
+            logger.debug(f"Created tokenizer for worker {worker_id}")
+            return tokenizer
+        except Exception as e:
+            logger.error(f"Failed to get tokenizer: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
+
     def _initialize_process_local(self):
         """Initialize process-local attributes."""
         try:
@@ -41,100 +71,147 @@ class DataManager(BaseManager):
             logger.error(traceback.format_exc())
             raise
 
-    def _create_datasets(
+    def create_dataset(
         self,
-        config: Dict[str, Any]
-    ) -> Tuple[Any, Any]:
-        """Create train and validation datasets."""
+        config: Dict[str, Any],
+        split: str = 'train'
+    ) -> Dataset:
+        """Create a single dataset instance.
+        
+        Args:
+            config: Configuration dictionary
+            split: Dataset split to create ('train' or 'val')
+            
+        Returns:
+            Created dataset instance
+            
+        Raises:
+            ValueError: If split is invalid
+            RuntimeError: If dataset creation fails
+        """
         try:
-            # Get tokenizer through manager
-            tokenizer = tokenizer_manager.get_worker_tokenizer(
-                worker_id=os.getpid(),
-                model_name=config['model']['name']
-            )
-
-            # Create datasets with shared memory tensors
-            data_path = Path(config['data']['csv_path'])
-            
+            if split not in ['train', 'val']:
+                raise ValueError(f"Invalid split: {split}")
+                
+            tokenizer = self.get_tokenizer(config)
             EmbeddingDataset = get_embedding_dataset()
-            train_dataset = EmbeddingDataset(
-                data_path=data_path,
-                tokenizer=tokenizer,
-                split='train',
-                train_ratio=config['data'].get('train_ratio', 0.9),
-                max_length=config['data']['max_length']
-            )
             
-            val_dataset = EmbeddingDataset(
-                data_path=data_path,
+            dataset = EmbeddingDataset(
+                data_path=Path(config['data']['csv_path']),
                 tokenizer=tokenizer,
-                split='val',
+                split=split,
                 train_ratio=config['data'].get('train_ratio', 0.9),
                 max_length=config['data']['max_length']
             )
 
             # Move tensors to shared memory
-            for dataset in [train_dataset, val_dataset]:
-                for key in dataset.data:
-                    if isinstance(dataset.data[key], torch.Tensor):
-                        dataset.data[key] = dataset.data[key].share_memory_()
-
-            return train_dataset, val_dataset
-
+            for key in dataset.data:
+                if isinstance(dataset.data[key], torch.Tensor):
+                    dataset.data[key] = dataset.data[key].share_memory_()
+            
+            logger.debug(f"Created {split} dataset with {len(dataset)} examples")
+            return dataset
+            
         except Exception as e:
-            logger.error(f"Error creating datasets: {str(e)}")
+            logger.error(f"Failed to create {split} dataset: {str(e)}")
+            logger.error(traceback.format_exc())
             raise
 
-    def _create_dataloaders(
+    def create_dataloader(
         self,
-        train_dataset: Any,
-        val_dataset: Any,
         config: Dict[str, Any],
+        dataset: Optional[Dataset] = None,
+        split: str = 'train',
         world_size: int = 1,
         rank: int = 0
-    ) -> Tuple[DataLoader, DataLoader]:
-        """Create train and validation dataloaders."""
+    ) -> DataLoader:
+        """Create a dataloader for a dataset.
+        
+        Args:
+            config: Configuration dictionary
+            dataset: Optional dataset to create loader for. If None, creates new dataset.
+            split: Dataset split if creating new dataset
+            world_size: Number of distributed processes
+            rank: Process rank for distributed training
+            
+        Returns:
+            Created DataLoader instance
+            
+        Raises:
+            RuntimeError: If dataloader creation fails
+        """
         try:
-            # Create samplers
-            train_sampler = DistributedSampler(
-                train_dataset,
+            if dataset is None:
+                dataset = self.create_dataset(config, split)
+
+            # Create sampler for distributed training
+            sampler = DistributedSampler(
+                dataset,
                 num_replicas=world_size,
                 rank=rank,
-                shuffle=True
+                shuffle=(split == 'train')
             ) if world_size > 1 else None
 
-            val_sampler = DistributedSampler(
-                val_dataset,
-                num_replicas=world_size,
-                rank=rank,
-                shuffle=False
-            ) if world_size > 1 else None
-
-            # Create dataloaders with efficient settings
-            train_loader = dataloader_manager.create_dataloader(
-                dataset=train_dataset,
+            # Create dataloader with efficient settings
+            loader = dataloader_manager.create_dataloader(
+                dataset=dataset,
                 batch_size=config['training']['batch_size'],
-                shuffle=(train_sampler is None),
-                sampler=train_sampler,
+                shuffle=(sampler is None and split == 'train'),
+                sampler=sampler,
                 num_workers=0,  # No workers needed since data is in shared memory
                 collate_fn=default_collate,
                 persistent_workers=False,  # No persistence needed
                 prefetch_factor=2  # Prefetch 2 batches
             )
 
-            val_loader = dataloader_manager.create_dataloader(
-                dataset=val_dataset,
-                batch_size=config['training']['batch_size'],
-                shuffle=False,
-                sampler=val_sampler,
-                num_workers=0,
-                collate_fn=default_collate,
-                persistent_workers=False,
-                prefetch_factor=2
+            logger.debug(
+                f"Created {split} dataloader with batch size {loader.batch_size}"
             )
+            return loader
 
+        except Exception as e:
+            logger.error(f"Failed to create {split} dataloader: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
+
+    def _create_datasets(
+        self,
+        config: Dict[str, Any]
+    ) -> Tuple[Dataset, Dataset]:
+        """Create train and validation datasets."""
+        try:
+            train_dataset = self.create_dataset(config, split='train')
+            val_dataset = self.create_dataset(config, split='val')
+            return train_dataset, val_dataset
+        except Exception as e:
+            logger.error(f"Error creating datasets: {str(e)}")
+            raise
+
+    def _create_dataloaders(
+        self,
+        train_dataset: Dataset,
+        val_dataset: Dataset,
+        config: Dict[str, Any],
+        world_size: int = 1,
+        rank: int = 0
+    ) -> Tuple[DataLoader, DataLoader]:
+        """Create train and validation dataloaders."""
+        try:
+            train_loader = self.create_dataloader(
+                config,
+                dataset=train_dataset,
+                split='train',
+                world_size=world_size,
+                rank=rank
+            )
+            val_loader = self.create_dataloader(
+                config,
+                dataset=val_dataset,
+                split='val',
+                world_size=world_size,
+                rank=rank
+            )
             return train_loader, val_loader
-
         except Exception as e:
             logger.error(f"Error creating dataloaders: {str(e)}")
             raise
@@ -172,11 +249,8 @@ class DataManager(BaseManager):
             # Get or create shared datasets
             shared = self.init_shared_resources(config)
             
-            # Get tokenizer through manager
-            tokenizer = tokenizer_manager.get_worker_tokenizer(
-                worker_id=os.getpid(),
-                model_name=config['model']['name']
-            )
+            # Get tokenizer
+            tokenizer = self.get_tokenizer(config)
 
             # Create process-local dataloaders
             train_loader, val_loader = self._create_dataloaders(

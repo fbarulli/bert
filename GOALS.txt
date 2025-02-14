@@ -25,9 +25,6 @@ Stage 2
 1- Train best model on full dataset (except validation set)
 2 return predictions on validation set and return training curve for classification accuracy on validation set
 
-
-Avoid introducing new modules, we need to focus on making current code work. We must focus on succesfully completing optuna trials.
-
 When an error is presented, make sure to fully understand full project structure and how the proposed change will affect other parts of the code.
 Always use type hinting, logging and tracebacks.
 

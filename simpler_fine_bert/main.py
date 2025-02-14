@@ -7,11 +7,8 @@ from typing import Dict, Any, Optional
 
 from simpler_fine_bert.common.utils import setup_logging, seed_everything
 from simpler_fine_bert.common.config_utils import load_config
-from simpler_fine_bert.embedding import (
-    EmbeddingDataset,
-    train_embeddings,
-    validate_embeddings
-)
+from simpler_fine_bert.embedding import train_embeddings, validate_embeddings
+from simpler_fine_bert.common.resource import resource_factory
 from simpler_fine_bert.classification import (
     run_classification_optimization,
     train_final_model
@@ -60,17 +57,15 @@ def main():
         config = load_config("config_embedding.yaml")
         logger.info("Configuration loaded successfully")
         
-        logger.info(f"\n=== Creating {config['model']['stage'].title()} Dataset ===")
-        dataset_class = EmbeddingDataset if config['model']['stage'] == 'embedding' else None
-        if dataset_class:
-            dataset = dataset_class(
-                data_path=Path(config['data']['csv_path']),
-                tokenizer=None,  # Will be initialized by trainer
-                max_length=config['data']['max_length'],
-                mask_prob=config['data']['embedding_mask_probability'],
-                max_predictions=config['data']['max_predictions']
-            )
+        logger.info(f"\n=== Creating {config['model']['stage'].title()} Resources ===")
+        try:
+            # Create dataset through resource factory
+            dataset = resource_factory.create_resource('dataset', config)
             logger.info(f"Created dataset with {len(dataset)} examples")
+        except Exception as e:
+            logger.error(f"Failed to create resources: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
         
         logger.info("\n=== Starting Training ===")
         train_model(config)

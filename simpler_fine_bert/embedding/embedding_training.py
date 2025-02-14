@@ -8,11 +8,9 @@ from typing import Dict, Any, Optional, Tuple
 from transformers import BertConfig
 
 from simpler_fine_bert.embedding.embedding_trainer import EmbeddingTrainer
-from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
-from simpler_fine_bert.common.dataloader_manager import create_dataloaders
 from simpler_fine_bert.common.wandb_manager import WandbManager
 from simpler_fine_bert.common.utils import measure_memory, clear_memory
-from simpler_fine_bert.embedding.model import EmbeddingBert
+from simpler_fine_bert.common.resource import resource_factory
 
 logger = logging.getLogger(__name__)
 
@@ -42,76 +40,31 @@ def train_embeddings(
         # Create output directory
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Get tokenizer through manager
-        tokenizer = tokenizer_manager.get_worker_tokenizer(
-            worker_id=job_id if job_id is not None else os.getpid(),
-            model_name=config['model']['name'],
-            model_type='embedding'
-        )
-        
-        # Create dataloaders with efficient loading
-        train_loader, val_loader, train_dataset, val_dataset = create_dataloaders(
-            data_path=Path(config['data']['csv_path']),
-            tokenizer=tokenizer,
-            max_length=config['data']['max_length'],
-            batch_size=config['training']['batch_size'],
-            train_ratio=config['data']['train_ratio'],
-            is_embedding=True,
-            mask_prob=config['data']['embedding_mask_probability'],
-            max_predictions=config['data']['max_predictions'],
-            max_span_length=config['data']['max_span_length'],
-            num_workers=config['data']['num_workers']
-        )
-        
-        # Get model configuration
-        model_config = BertConfig.from_pretrained(
-            config['model']['name'],
-            vocab_size=tokenizer.vocab_size,
-            hidden_size=768,  # Standard BERT base size
-            num_hidden_layers=12,
-            num_attention_heads=12,
-            intermediate_size=3072,
-            hidden_act="gelu",
-            hidden_dropout_prob=config['training']['hidden_dropout_prob'],
-            attention_probs_dropout_prob=config['training']['attention_probs_dropout_prob'],
-            max_position_embeddings=512,
-            type_vocab_size=2,
-            initializer_range=0.02,
-            layer_norm_eps=1e-12,
-            pad_token_id=tokenizer.pad_token_id,
-            position_embedding_type="absolute",
-            use_cache=True,
-            classifier_dropout=None,
-        )
-        
-        # Initialize model with proper embedding head
-        model = EmbeddingBert(
-            config=model_config,
-            tie_weights=True  # Important for embedding learning
-        )
-        
-        # Load pre-trained weights if using pre-trained model
-        if config['model']['type'] == 'pretrained':
-            logger.info(f"Loading pre-trained weights from {config['model']['name']}")
-            pretrained_dict = torch.load(
-                f"{config['model']['name']}/pytorch_model.bin",
-                map_location='cpu'
-            )
-            model_dict = model.state_dict()
+        # Create resources through factory
+        try:
+            train_dataset = resource_factory.create_resource('dataset', config, split='train')
+            val_dataset = resource_factory.create_resource('dataset', config, split='val')
             
-            # Filter out embedding head weights that we want to train from scratch
-            pretrained_dict = {
-                k: v for k, v in pretrained_dict.items()
-                if k in model_dict and not k.startswith('cls.')
-            }
-            model_dict.update(pretrained_dict)
-            model.load_state_dict(model_dict)
-            
-            logger.info(
-                f"Loaded pre-trained weights:\n"
-                f"- Total parameters: {sum(p.numel() for p in model.parameters())}\n"
-                f"- Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
+            train_loader = resource_factory.create_resource(
+                'dataloader', 
+                config, 
+                dataset=train_dataset,
+                split='train'
             )
+            val_loader = resource_factory.create_resource(
+                'dataloader',
+                config,
+                dataset=val_dataset,
+                split='val'
+            )
+            
+            model = resource_factory.create_resource('model', config)
+            
+            logger.info("Successfully created all resources")
+        except Exception as e:
+            logger.error(f"Failed to create resources: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
         
         # Initialize trainer
         trainer = EmbeddingTrainer(
@@ -180,43 +133,28 @@ def validate_embeddings(
             output_dir = Path(output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Get tokenizer
-        tokenizer = tokenizer_manager.get_worker_tokenizer(
-            worker_id=os.getpid(),
-            model_name=config['model']['name'],
-            model_type='embedding'
-        )
+        # Update config with validation data path
+        val_config = {**config, 'data': {**config['data'], 'csv_path': data_path}}
         
-        # Create dataloader
-        _, val_loader, _, val_dataset = create_dataloaders(
-            data_path=Path(data_path),
-            tokenizer=tokenizer,
-            max_length=config['data']['max_length'],
-            batch_size=config['training']['batch_size'],
-            train_ratio=config['data']['train_ratio'],
-            is_embedding=True,
-            mask_prob=config['data']['embedding_mask_probability'],
-            max_predictions=config['data']['max_predictions'],
-            max_span_length=config['data']['max_span_length'],
-            num_workers=config['data']['num_workers']
-        )
-        
-        # Load model configuration
-        model_config = BertConfig.from_pretrained(model_path)
-        
-        # Initialize model with embedding head
-        model = EmbeddingBert(
-            config=model_config,
-            tie_weights=True
-        )
-        
-        # Load trained weights
-        model.load_state_dict(
-            torch.load(
-                f"{model_path}/pytorch_model.bin",
-                map_location='cpu'
+        # Create resources through factory
+        try:
+            val_dataset = resource_factory.create_resource('dataset', val_config, split='val')
+            val_loader = resource_factory.create_resource(
+                'dataloader',
+                val_config,
+                dataset=val_dataset,
+                split='val'
             )
-        )
+            
+            # For validation, we need to load a specific model checkpoint
+            val_config['model']['path'] = model_path
+            model = resource_factory.create_resource('model', val_config)
+            
+            logger.info("Successfully created validation resources")
+        except Exception as e:
+            logger.error(f"Failed to create validation resources: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
         
         # Initialize trainer
         trainer = EmbeddingTrainer(

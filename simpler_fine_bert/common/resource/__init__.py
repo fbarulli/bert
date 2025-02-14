@@ -1,7 +1,7 @@
 from simpler_fine_bert.common.resource.resource_factory import (
     ResourceFactory,
-    create_resource,
-    register_resource_type
+    ResourceType,
+    resource_factory
 )
 from simpler_fine_bert.common.resource.resource_initializer import (
     ResourceInitializer,
@@ -13,8 +13,8 @@ from simpler_fine_bert.common.resource.resource_initializer import (
 __all__ = [
     # Resource Factory
     'ResourceFactory',
-    'create_resource',
-    'register_resource_type',
+    'ResourceType',
+    'resource_factory',
     
     # Resource Initialization
     'ResourceInitializer',
