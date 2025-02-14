@@ -147,16 +147,21 @@ class DataManager(BaseManager):
                 shuffle=(split == 'train')
             ) if world_size > 1 else None
 
-            # Create dataloader with efficient settings
+            # Extract batch size from config
+            batch_size = config['training'].get('batch_size', 16)  # Default to 16 if not specified
+            num_workers = config['training'].get('num_workers', 0)  # Default to 0 if not specified
+
+            # Create dataloader through manager
             loader = dataloader_manager.create_dataloader(
                 dataset=dataset,
-                batch_size=config['training']['batch_size'],
+                batch_size=batch_size,
                 shuffle=(sampler is None and split == 'train'),
+                num_workers=num_workers,
                 sampler=sampler,
-                num_workers=0,  # No workers needed since data is in shared memory
+                pin_memory=None,  # Let dataloader_manager decide based on CUDA availability
                 collate_fn=default_collate,
-                persistent_workers=False,  # No persistence needed
-                prefetch_factor=2  # Prefetch 2 batches
+                persistent_workers=False,
+                prefetch_factor=2
             )
 
             logger.debug(

@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from transformers import BertConfig
 
 from simpler_fine_bert.common.cuda_utils import cuda_manager
-from simpler_fine_bert.common.resource_manager import resource_manager
-
 from torch.utils.data import Dataset, DataLoader
 
 logger = logging.getLogger(__name__)
@@ -48,35 +46,41 @@ class ResourceType:
 class ResourceFactory:
     """Factory for creating process-local resources."""
     
-    _resource_types: Dict[str, ResourceType] = {
-        'dataset': ResourceType(
-            name='dataset',
-            description='Dataset resources',
-            factory=lambda config, split='train', stage='embedding': get_dataset_class(stage)(
-                data_path=Path(config['data']['csv_path']),
-                tokenizer=get_data_manager().get_tokenizer(config),
-                max_length=config['data']['max_length'],
-                split=split,
-                train_ratio=float(config['data']['train_ratio'])
+    def __init__(self):
+        self._resource_types: Dict[str, ResourceType] = {
+            'dataset': ResourceType(
+                name='dataset',
+                description='Dataset resources',
+                factory=lambda config, split='train', stage='embedding': get_dataset_class(stage)(
+                    data_path=Path(config['data']['csv_path']),
+                    tokenizer=get_data_manager().get_tokenizer(config),
+                    max_length=config['data']['max_length'],
+                    split=split,
+                    train_ratio=float(config['data']['train_ratio'])
+                ),
+                validator=lambda x: isinstance(x, Dataset)
             ),
-            validator=lambda x: isinstance(x, Dataset)
-        ),
-        'dataloader': ResourceType(
-            name='dataloader',
-            description='DataLoader resources',
-            factory=lambda config: get_data_manager().create_dataloader(config),
-            validator=lambda x: isinstance(x, DataLoader)
-        ),
-        'model': ResourceType(
-            name='model',
-            description='Model resources',
-            factory=lambda config: cls.create_model(config),
-            validator=lambda x: isinstance(x, torch.nn.Module)
-        )
-    }
+            'dataloader': ResourceType(
+                name='dataloader',
+                description='DataLoader resources',
+                factory=lambda config, dataset=None, split='train', world_size=1, rank=0: get_data_manager().create_dataloader(
+                    config=config,
+                    dataset=dataset,
+                    split=split,
+                    world_size=world_size,
+                    rank=rank
+                ),
+                validator=lambda x: isinstance(x, DataLoader)
+            ),
+            'model': ResourceType(
+                name='model',
+                description='Model resources',
+                factory=lambda config: self.create_model(config),
+                validator=lambda x: isinstance(x, torch.nn.Module)
+            )
+        }
 
-    @classmethod
-    def create_model(cls, config: Dict[str, Any]) -> torch.nn.Module:
+    def create_model(self, config: Dict[str, Any]) -> torch.nn.Module:
         """Create a model instance based on configuration.
         
         Args:
@@ -151,9 +155,8 @@ class ResourceFactory:
             logger.error(traceback.format_exc())
             raise
 
-    @classmethod
     def register_resource_type(
-        cls,
+        self,
         name: str,
         description: str,
         factory: Callable[..., T],
@@ -171,10 +174,10 @@ class ResourceFactory:
             ValueError: If resource type already exists
         """
         try:
-            if name in cls._resource_types:
+            if name in self._resource_types:
                 raise ValueError(f"Resource type '{name}' already registered")
             
-            cls._resource_types[name] = ResourceType(
+            self._resource_types[name] = ResourceType(
                 name=name,
                 description=description,
                 factory=factory,
@@ -187,9 +190,8 @@ class ResourceFactory:
             logger.error(traceback.format_exc())
             raise
 
-    @classmethod
     def create_resource(
-        cls,
+        self,
         resource_type: str,
         config: Dict[str, Any],
         **kwargs: Any
@@ -209,10 +211,10 @@ class ResourceFactory:
             RuntimeError: If resource creation fails
         """
         try:
-            if resource_type not in cls._resource_types:
+            if resource_type not in self._resource_types:
                 raise ValueError(f"Unknown resource type: {resource_type}")
                 
-            resource_config = cls._resource_types[resource_type]
+            resource_config = self._resource_types[resource_type]
             resource = resource_config.factory(config, **kwargs)
             
             if resource_config.validator and not resource_config.validator(resource):
@@ -227,9 +229,9 @@ class ResourceFactory:
             logger.error(f"Failed to create resource of type {resource_type}: {str(e)}")
             logger.error(traceback.format_exc())
             raise
-    @classmethod
+
     def create_resources(
-        cls,
+        self,
         config: Dict[str, Any],
         device_id: Optional[int] = None,
         cache_dir: Optional[Path] = None
@@ -241,9 +243,9 @@ class ResourceFactory:
             
             # Create all registered resource types
             resources = {'device': device}
-            for resource_type in cls._resource_types:
+            for resource_type in self._resource_types:
                 try:
-                    resource = cls.create_resource(resource_type, config)
+                    resource = self.create_resource(resource_type, config)
                     if resource is not None:
                         resources[resource_type] = resource
                 except Exception as e:
@@ -258,15 +260,14 @@ class ResourceFactory:
             logger.error(traceback.format_exc())
             raise
     
-    @classmethod
-    def get_resource_config(cls, resource: Any) -> Dict[str, Any]:
+    def get_resource_config(self, resource: Any) -> Dict[str, Any]:
         """Extract configuration that can be used to recreate a resource."""
         if isinstance(resource, DataLoader):
             return {
                 'type': 'DataLoader',
                 'batch_size': resource.batch_size,
                 'num_workers': resource.num_workers,
-                'dataset': cls.get_resource_config(resource.dataset),
+                'dataset': self.get_resource_config(resource.dataset),
                 'shuffle': resource.shuffle
             }
         elif isinstance(resource, Dataset):

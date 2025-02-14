@@ -20,6 +20,7 @@ from simpler_fine_bert.common.dataloader_manager import dataloader_manager
 from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
 from simpler_fine_bert.embedding import EmbeddingDataset, EmbeddingTrainer
 from simpler_fine_bert.common.utils import create_optimizer
+from simpler_fine_bert.common.resource_manager import resource_manager
 
 def get_model_manager():
     """Get model manager instance at runtime to avoid circular imports."""
@@ -80,42 +81,16 @@ class ObjectiveFactory:
             param_manager = ParameterManager(self.config)
             trial_config = param_manager.get_trial_config(trial)
 
-            # Initialize datasets with process-specific error handling
+            # Create datasets and loaders through resource manager
             logger.info(f"Creating datasets in process {current_pid}")
-            train_dataset = EmbeddingDataset(
-                data_path=Path(trial_config['data']['csv_path']),
-                tokenizer=tokenizer,
-                max_length=trial_config['data']['max_length'],
-                split='train',
-                train_ratio=trial_config['data']['train_ratio'],
-                mask_prob=trial_config['data']['embedding_mask_probability'],
-                max_predictions=trial_config['data']['max_predictions'],
-                max_span_length=trial_config['data']['max_span_length']
+            train_dataset, val_dataset = resource_manager.create_datasets(
+                trial_config,
+                stage='embedding'
             )
-            val_dataset = EmbeddingDataset(
-                data_path=Path(trial_config['data']['csv_path']),
-                tokenizer=tokenizer,
-                max_length=trial_config['data']['max_length'],
-                split='val',
-                train_ratio=trial_config['data']['train_ratio'],
-                mask_prob=trial_config['data']['embedding_mask_probability'],
-                max_predictions=trial_config['data']['max_predictions'],
-                max_span_length=trial_config['data']['max_span_length']
-            )
-            logger.info(f"Datasets created successfully in process {current_pid}")
-
-            batch_size = trial_config['training']['batch_size']
-            train_loader = dataloader_manager.create_dataloader(
-                dataset=train_dataset,
-                batch_size=batch_size,
-                shuffle=True,
-                num_workers=trial_config['data']['num_workers']
-            )
-            val_loader = dataloader_manager.create_dataloader(
-                dataset=val_dataset,
-                batch_size=batch_size,
-                shuffle=False,
-                num_workers=trial_config['data']['num_workers']
+            train_loader, val_loader = resource_manager.create_dataloaders(
+                trial_config,
+                train_dataset,
+                val_dataset
             )
 
             # Get model manager and create model
