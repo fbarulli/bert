@@ -26,7 +26,10 @@ from simpler_fine_bert.common.utils import seed_everything as set_seed, create_o
 
 from simpler_fine_bert.common.config_utils import load_config
 
-from simpler_fine_bert.common.cuda_utils import cuda_manager
+from simpler_fine_bert.common.managers import get_cuda_manager
+
+# Get manager instance
+cuda_manager = get_cuda_manager()
 from simpler_fine_bert.common.managers import (
     get_dataloader_manager,
     get_resource_manager

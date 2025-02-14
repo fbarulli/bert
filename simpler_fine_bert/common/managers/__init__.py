@@ -15,7 +15,7 @@ def get_cuda_manager():
     return cuda_manager
 
 def get_data_manager():
-    from simpler_fine_bert.common.data_manager import data_manager
+    from simpler_fine_bert.common.managers.data_manager import data_manager
     return data_manager
 
 def get_dataloader_manager():
@@ -23,7 +23,7 @@ def get_dataloader_manager():
     return dataloader_manager
 
 def get_directory_manager():
-    from simpler_fine_bert.common.directory_manager import directory_manager
+    from simpler_fine_bert.common.managers.directory_manager import directory_manager
     return directory_manager
 
 def get_metrics_manager():
@@ -31,19 +31,19 @@ def get_metrics_manager():
     return metrics_manager
 
 def get_model_manager():
-    from simpler_fine_bert.common.model_manager import model_manager
+    from simpler_fine_bert.common.managers.model_manager import model_manager
     return model_manager
 
 def get_parameter_manager():
-    from simpler_fine_bert.common.parameter_manager import parameter_manager
+    from simpler_fine_bert.common.managers.parameter_manager import parameter_manager
     return parameter_manager
 
 def get_resource_manager():
-    from simpler_fine_bert.common.resource_manager import resource_manager
+    from simpler_fine_bert.common.managers.resource_manager import resource_manager
     return resource_manager
 
 def get_storage_manager():
-    from simpler_fine_bert.common.storage_manager import storage_manager
+    from simpler_fine_bert.common.managers.storage_manager import storage_manager
     return storage_manager
 
 def get_tensor_manager():
@@ -55,7 +55,7 @@ def get_tokenizer_manager():
     return tokenizer_manager
 
 def get_worker_manager():
-    from simpler_fine_bert.common.worker_manager import worker_manager
+    from simpler_fine_bert.common.managers.worker_manager import worker_manager
     return worker_manager
 
 __all__ = [

@@ -10,7 +10,10 @@ from torch.optim import Optimizer
 import optuna
 
 from simpler_fine_bert.common.base_trainer import BaseTrainer
-from simpler_fine_bert.common.cuda_utils import metrics_manager
+from simpler_fine_bert.common.managers import get_metrics_manager
+
+# Get manager instance
+metrics_manager = get_metrics_manager()
 from simpler_fine_bert.common.wandb_manager import WandbManager
 
 logger = logging.getLogger(__name__)

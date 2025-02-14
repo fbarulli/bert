@@ -14,7 +14,10 @@ import optuna
 from optuna.trial import Trial
 import torch
 
-from simpler_fine_bert.common.cuda_utils import cuda_manager
+from simpler_fine_bert.common.managers import get_cuda_manager
+
+# Get manager instance
+cuda_manager = get_cuda_manager()
 from simpler_fine_bert.common.study.objective_factory import ObjectiveFactory
 from simpler_fine_bert.common.managers import (
     get_model_manager,
