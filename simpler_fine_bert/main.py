@@ -1,5 +1,10 @@
-from __future__ import annotations
+"""Main entry point for training."""
 
+# Set up multiprocessing before any other imports
+from simpler_fine_bert.common.process.multiprocessing_setup import setup_multiprocessing
+setup_multiprocessing()
+
+from __future__ import annotations
 import logging
 import os
 from pathlib import Path

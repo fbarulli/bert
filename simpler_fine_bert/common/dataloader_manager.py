@@ -17,11 +17,22 @@ logger = logging.getLogger(__name__)
 def worker_init_fn(worker_id: int) -> None:
     """Initialize worker process with centralized resource management."""
     try:
+        # Set spawn method for any sub-processes
+        import multiprocessing
+        if multiprocessing.get_start_method(allow_none=True) != 'spawn':
+            try:
+                multiprocessing.set_start_method('spawn', force=True)
+            except RuntimeError as e:
+                logger.warning(f"Could not set spawn method in worker {worker_id}: {e}")
+        
         # Initialize all process resources through ResourceInitializer
         from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
         current_pid = ResourceInitializer.initialize_process()
         logger.info(f"Initialized DataLoader worker {worker_id} (PID: {current_pid})")
-    except Exception as e:
+    except RuntimeError as e:
+        if "Cannot re-initialize CUDA" in str(e):
+            logger.error(f"CUDA initialization failed in worker {worker_id} - ensure spawn start method is used")
+            logger.error(f"Current start method: {multiprocessing.get_start_method()}")
         logger.error(f"Failed to initialize DataLoader worker {worker_id}: {str(e)}")
         logger.error(traceback.format_exc())
         # Attempt cleanup on failure
@@ -97,10 +108,17 @@ class DataLoaderManager(BaseManager):
             # Ensure thread-local storage is properly initialized
             if not hasattr(self._local, 'num_workers'):
                 self._initialize_process_local()
-                
+            
             # Use instance defaults if not specified
             if num_workers is None:
                 num_workers = self._local.num_workers
+            
+            # Add prefetch_factor only if using workers
+            kwargs = dict(kwargs)  # Make a copy to modify
+            if num_workers > 0:
+                kwargs['prefetch_factor'] = kwargs.get('prefetch_factor', 2)
+            elif 'prefetch_factor' in kwargs:
+                del kwargs['prefetch_factor']  # Remove if no workers
             if pin_memory is None:
                 # Only enable pin_memory if explicitly set or if CUDA is available
                 try:

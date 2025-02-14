@@ -147,9 +147,14 @@ class DataManager(BaseManager):
                 shuffle=(split == 'train')
             ) if world_size > 1 else None
 
-            # Extract batch size from config
-            batch_size = config['training'].get('batch_size', 16)  # Default to 16 if not specified
-            num_workers = config['training'].get('num_workers', 0)  # Default to 0 if not specified
+            # Extract settings from config
+            batch_size = config['training']['batch_size']
+            num_workers = config['training']['num_workers']  # Using 2 workers from config
+
+            # Enable distributed training
+            config['training']['distributed']['enabled'] = True
+            config['training']['distributed']['world_size'] = world_size
+            config['training']['distributed']['rank'] = rank
 
             # Create dataloader through manager
             loader = dataloader_manager.create_dataloader(
@@ -160,8 +165,7 @@ class DataManager(BaseManager):
                 sampler=sampler,
                 pin_memory=None,  # Let dataloader_manager decide based on CUDA availability
                 collate_fn=default_collate,
-                persistent_workers=False,
-                prefetch_factor=2
+                persistent_workers=True  # Always use persistent workers with num_workers=2
             )
 
             logger.debug(

@@ -15,7 +15,7 @@ training:
   early_stopping_min_delta: 0.001
   max_grad_norm: 1.0
   num_trials: 10
-  n_jobs: 1
+  n_jobs: 2
   n_startup_trials: 5
   study_name: "embedding_study"
   num_workers: 2
@@ -48,11 +48,11 @@ training:
     
   # Distributed training configuration
   distributed:
-    enabled: false  # Enable/disable distributed training
+    enabled: true  # Enable distributed training
     backend: "nccl"  # DDP backend (nccl for GPU, gloo for CPU)
-    world_size: -1  # Number of processes (-1 for auto-detect)
-    rank: -1  # Global rank of this process (-1 for auto-detect)
-    local_rank: -1  # Local rank on this node (-1 for auto-detect)
+    world_size: 2  # Number of processes
+    rank: 0  # Global rank of this process
+    local_rank: 0  # Local rank on this node
     init_method: "env://"  # Process group initialization method
     timeout: 1800  # Timeout in seconds for operations
     find_unused_parameters: false  # Find unused parameters in DDP

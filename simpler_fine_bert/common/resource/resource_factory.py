@@ -118,35 +118,36 @@ class ResourceFactory:
                 classifier_dropout=None,
             )
             
-            # Initialize model with proper embedding head
+            # Initialize model with pre-trained weights
             EmbeddingBert = get_embedding_model()
-            model = EmbeddingBert(
+            model = EmbeddingBert.from_pretrained(
+                config['model']['name'],
                 config=model_config,
                 tie_weights=True  # Important for embedding learning
             )
-            
-            # Load pre-trained weights if using pre-trained model
-            if config['model']['type'] == 'pretrained':
-                logger.info(f"Loading pre-trained weights from {config['model']['name']}")
-                pretrained_dict = torch.load(
-                    f"{config['model']['name']}/pytorch_model.bin",
-                    map_location='cpu'
-                )
-                model_dict = model.state_dict()
-                
-                # Filter out embedding head weights that we want to train from scratch
-                pretrained_dict = {
-                    k: v for k, v in pretrained_dict.items()
-                    if k in model_dict and not k.startswith('cls.')
-                }
-                model_dict.update(pretrained_dict)
-                model.load_state_dict(model_dict)
-                
-                logger.info(
-                    f"Loaded pre-trained weights:\n"
-                    f"- Total parameters: {sum(p.numel() for p in model.parameters())}\n"
-                    f"- Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
-                )
+
+            # Freeze all layers first
+            for param in model.parameters():
+                param.requires_grad = False
+
+            # Unfreeze last 3 encoder layers
+            for i in range(9, 12):
+                for param in model.bert.encoder.layer[i].parameters():
+                    param.requires_grad = True
+
+            # Unfreeze embedding head
+            for param in model.cls.parameters():
+                param.requires_grad = True
+
+            # Log parameter counts
+            total_params = sum(p.numel() for p in model.parameters())
+            trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            logger.info(
+                f"Initialized model with:\n"
+                f"- Total parameters: {total_params:,}\n"
+                f"- Trainable parameters: {trainable_params:,} ({trainable_params/total_params*100:.1f}%)\n"
+                f"- Frozen parameters: {total_params-trainable_params:,} ({(total_params-trainable_params)/total_params*100:.1f}%)"
+            )
             
             return model
             

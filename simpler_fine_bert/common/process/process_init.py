@@ -28,10 +28,28 @@ def initialize_process() -> Tuple[int, int]:
     
     Returns:
         Tuple of (current_pid, parent_pid)
+        
+    Raises:
+        RuntimeError: If CUDA initialization fails or other process setup fails
     """
-    current_pid = ResourceInitializer.initialize_process()
-    parent_pid = os.getppid()
-    return current_pid, parent_pid
+    try:
+        # Set spawn method for any sub-processes
+        import multiprocessing
+        if multiprocessing.get_start_method(allow_none=True) != 'spawn':
+            try:
+                multiprocessing.set_start_method('spawn', force=True)
+            except RuntimeError as e:
+                logger.warning(f"Could not set spawn method: {e}")
+        
+        current_pid = ResourceInitializer.initialize_process()
+        parent_pid = os.getppid()
+        return current_pid, parent_pid
+        
+    except RuntimeError as e:
+        if "Cannot re-initialize CUDA" in str(e):
+            logger.error("CUDA initialization failed - ensure spawn start method is used")
+            logger.error(f"Current start method: {multiprocessing.get_start_method()}")
+        raise
 
 def cleanup_process_resources() -> None:
     """Clean up process-specific resources.

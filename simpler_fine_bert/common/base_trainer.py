@@ -44,7 +44,9 @@ class BaseTrainer:
         wandb_manager: Optional['WandbManager'] = None,
         job_id: Optional[int] = None,
         train_dataset: Optional[Any] = None,
-        val_dataset: Optional[Any] = None
+        val_dataset: Optional[Any] = None,
+        world_size: int = 1,
+        rank: int = 0
     ):
         """Initialize trainer."""
         # Store basic attributes
@@ -85,7 +87,7 @@ class BaseTrainer:
         
         # Initialize distributed training if enabled
         if self.use_ddp:
-            self._init_distributed()
+            self._init_distributed(world_size=world_size, rank=rank)
             
         # Setup data loaders with distributed sampler if needed
         if self.use_ddp:
@@ -551,12 +553,19 @@ class BaseTrainer:
             metrics.update(self.compute_task_metrics(outputs, batch))
         return metrics
         
-    def _init_distributed(self) -> None:
+    def _init_distributed(self, world_size: int = 1, rank: int = 0) -> None:
         """Initialize distributed training."""
         try:
+            # Store distributed training parameters
             self.world_size = self.distributed_config.get('world_size', -1)
             self.rank = self.distributed_config.get('rank', -1)
             self.local_rank = self.distributed_config.get('local_rank', -1)
+
+            # Override with passed values if not default
+            if world_size != 1:
+                self.world_size = world_size
+            if rank != 0:
+                self.rank = rank
             backend = self.distributed_config.get('backend', 'nccl')
             init_method = self.distributed_config.get('init_method', 'env://')
             timeout = self.distributed_config.get('timeout', 1800)

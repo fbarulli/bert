@@ -32,7 +32,9 @@ class ClassificationTrainer(BaseTrainer):
         wandb_manager: Optional[WandbManager] = None,
         job_id: Optional[int] = None,
         train_dataset: Optional[Dataset] = None,
-        val_dataset: Optional[Dataset] = None
+        val_dataset: Optional[Dataset] = None,
+        world_size: int = 1,
+        rank: int = 0
     ) -> None:
         """Initialize classification trainer.
         
@@ -63,7 +65,9 @@ class ClassificationTrainer(BaseTrainer):
             wandb_manager=wandb_manager,
             job_id=job_id,
             train_dataset=train_dataset,
-            val_dataset=val_dataset
+            val_dataset=val_dataset,
+            world_size=world_size,
+            rank=rank
         )
         self._optimizer = optimizer
         self.best_accuracy = 0.0
