@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 class CUDAManager(BaseManager):
     """Process-local CUDA manager."""
     
-    def _initialize_process_local(self):
+    def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes."""
         try:
             # Call parent's initialization first
-            super()._initialize_process_local()
+            super()._initialize_process_local(config)
             
             logger.info("Initializing CUDAManager for process %s", os.getpid())
             
@@ -32,7 +32,6 @@ class CUDAManager(BaseManager):
                 
             # Initialize device and models tracking
             self._local.device = None
-            self._local.amp = None
             self._local.models = weakref.WeakSet()
             
             # Log initial memory state
@@ -56,12 +55,6 @@ class CUDAManager(BaseManager):
                 delattr(self._local, 'settings_initialized')
             raise
             
-    @property
-    def amp(self) -> Optional[Any]:
-        """Get AMP manager."""
-        self.ensure_initialized()
-        return self._local.amp
-            
     def is_available(self) -> bool:
         """Check if CUDA is available."""
         return torch.cuda.is_available()
@@ -82,12 +75,6 @@ class CUDAManager(BaseManager):
             
         if not self.is_available():
             logger.warning("CUDA not available, running on CPU")
-            # If FP16 was requested but CUDA isn't available, warn about it
-            if config.get('training', {}).get('fp16', False):
-                logger.warning(
-                    "FP16 training requested but CUDA is not available. "
-                    "Falling back to FP32 training on CPU."
-                )
             return
             
         device = self.get_device()
@@ -99,28 +86,7 @@ class CUDAManager(BaseManager):
         self._local.memory_allocated = 0.0
         self._local.memory_cached = 0.0
         
-        # Setup AMP if enabled
-        if config.get('training', {}).get('fp16', False):
-            # Import amp_manager here to avoid circular import
-            from simpler_fine_bert.common.amp_manager import amp_manager
-            
-            # Initialize amp_manager first
-            amp_manager.ensure_initialized()
-            self._local.amp = amp_manager
-            
-            # Verify AMP initialization
-            if not self._local.amp.is_enabled():
-                logger.warning(
-                    "AMP initialization failed. This can happen if GradScaler "
-                    "initialization failed in the current process. "
-                    "Falling back to FP32 training."
-                )
-            else:
-                logger.info("AMP initialized successfully")
-        else:
-            self._local.amp = None
-            
-        logger.info(f"CUDA setup complete on {device} (AMP: {self.amp is not None})")
+        logger.info(f"CUDA setup complete on {device}")
             
     def log_memory_stats(self) -> None:
         """Log CUDA memory statistics."""

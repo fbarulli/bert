@@ -35,9 +35,14 @@ class ResourceInitializer:
             manager=cuda_manager,
             description="CUDA system initialization"
         ),
+        amp_manager.__class__: ManagerDependency(
+            manager=amp_manager,
+            depends_on=[cuda_manager.__class__],
+            description="Automatic mixed precision"
+        ),
         tensor_manager.__class__: ManagerDependency(
             manager=tensor_manager,
-            depends_on=[cuda_manager.__class__],
+            depends_on=[cuda_manager.__class__, amp_manager.__class__],
             description="Tensor operations"
         ),
         batch_manager.__class__: ManagerDependency(
@@ -50,11 +55,6 @@ class ResourceInitializer:
             depends_on=[tensor_manager.__class__],
             description="Metrics tracking"
         ),
-        amp_manager.__class__: ManagerDependency(
-            manager=amp_manager,
-            depends_on=[cuda_manager.__class__],
-            description="Automatic mixed precision"
-        ),
         tokenizer_manager.__class__: ManagerDependency(
             manager=tokenizer_manager,
             description="Tokenizer management"
@@ -65,6 +65,9 @@ class ResourceInitializer:
             description="Data loading"
         )
     }
+
+    # Class-level storage for process config
+    _config: Optional[Dict[str, Any]] = None
 
     @classmethod
     def _verify_dependencies(cls) -> None:
@@ -90,14 +93,20 @@ class ResourceInitializer:
                 visit(manager_cls)
 
     @classmethod
-    def initialize_process(cls) -> int:
+    def initialize_process(cls, config: Optional[Dict[str, Any]] = None) -> int:
         """Initialize all process-local resources in dependency order.
+        
+        Args:
+            config: Optional configuration dictionary
         
         Returns:
             Current process ID
         """
         current_pid = os.getpid()
         parent_pid = os.getppid()
+        
+        # Store config for this process
+        cls._config = config
         
         # Set multiprocessing start method if this is not a worker
         is_worker = mp.parent_process() is not None
@@ -160,8 +169,8 @@ class ResourceInitializer:
                         f"dependency {parent_cls.__name__} not initialized"
                     )
             
-            # Initialize manager
-            dep.manager.ensure_initialized()
+            # Initialize manager with config
+            dep.manager.ensure_initialized(cls._config)
             
             # Verify initialization
             if not dep.manager.is_initialized():
@@ -204,3 +213,6 @@ class ResourceInitializer:
                     logger.info(f"Cleaned up {manager_cls.__name__}")
                 except Exception as e:
                     logger.error(f"Error cleaning up {manager_cls.__name__}: {str(e)}")
+        
+        # Clear stored config
+        cls._config = None

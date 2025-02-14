@@ -3,7 +3,7 @@ import threading
 import logging
 import os
 import weakref
-from typing import Dict, Type, ClassVar
+from typing import Dict, Type, ClassVar, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class BaseManager:
         """Get class-specific thread-local storage."""
         return self.__class__._storage_registry[self.__class__]
     
-    def ensure_initialized(self) -> None:
+    def ensure_initialized(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Ensure manager is initialized for current process."""
         current_pid = os.getpid()
         if not hasattr(self._local, 'initialized') or self._local.pid != current_pid:
@@ -38,7 +38,7 @@ class BaseManager:
             self._local.pid = current_pid
             self._local.initialized = False  # Set to True only after successful initialization
             try:
-                self._initialize_process_local()
+                self._initialize_process_local(config)
                 self._local.initialized = True
                 logger.info(f"{self.__class__.__name__} initialized for process {current_pid}")
             except Exception as e:
@@ -48,7 +48,7 @@ class BaseManager:
                     delattr(self._local, 'initialized')
                 raise
     
-    def _initialize_process_local(self) -> None:
+    def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes. Override in subclasses."""
         pass
     
@@ -59,6 +59,12 @@ class BaseManager:
             self._local.initialized and 
             self._local.pid == os.getpid()
         )
+    
+    def get_config_section(self, config: Dict[str, Any], section: str) -> Dict[str, Any]:
+        """Get a section from the config with safe defaults."""
+        if config is None:
+            return {}
+        return config.get(section, {})
     
     @classmethod
     def cleanup_all(cls) -> None:

@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 import os
 import logging
 import traceback
-from typing import Any, Optional
+from typing import Any, Optional, Dict, Callable
 from torch.utils.data import Dataset, DataLoader
 
 from simpler_fine_bert.common.base_manager import BaseManager
@@ -12,7 +12,7 @@ from simpler_fine_bert.common.cuda_manager import cuda_manager
 
 logger = logging.getLogger(__name__)
 
-def worker_init_fn(worker_id: int) -> None:
+def _worker_init_fn(worker_id: int, config: Optional[Dict[str, Any]] = None) -> None:
     """Initialize worker process with centralized resource management."""
     try:
         # Set spawn method for any sub-processes
@@ -25,7 +25,7 @@ def worker_init_fn(worker_id: int) -> None:
         
         # Initialize all process resources through ResourceInitializer
         from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
-        current_pid = ResourceInitializer.initialize_process()
+        current_pid = ResourceInitializer.initialize_process(config)
         logger.info(f"Initialized DataLoader worker {worker_id} (PID: {current_pid})")
     except RuntimeError as e:
         if "Cannot re-initialize CUDA" in str(e):
@@ -43,11 +43,11 @@ def worker_init_fn(worker_id: int) -> None:
 class DataLoaderManager(BaseManager):
     """Process-local dataloader manager."""
     
-    def _initialize_process_local(self):
+    def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes."""
         try:
             # Call parent's initialization first
-            super()._initialize_process_local()
+            super()._initialize_process_local(config)
             
             logger.info("Initializing DataLoaderManager for process %s", os.getpid())
             
@@ -98,6 +98,7 @@ class DataLoaderManager(BaseManager):
         shuffle: bool = True,
         num_workers: Optional[int] = None,
         pin_memory: Optional[bool] = None,
+        config: Optional[Dict[str, Any]] = None,
         **kwargs: Any
     ) -> DataLoader:
         """Create dataloader with proper settings."""
@@ -125,6 +126,11 @@ class DataLoaderManager(BaseManager):
                     logger.warning("pin_memory not initialized, defaulting to False")
                     pin_memory = False
                 
+            # Create worker initialization function with config
+            worker_init = None
+            if num_workers > 0:
+                worker_init = lambda worker_id: _worker_init_fn(worker_id, config)
+                
             # Create dataloader with settings and worker initialization
             dataloader = DataLoader(
                 dataset,
@@ -132,7 +138,7 @@ class DataLoaderManager(BaseManager):
                 shuffle=shuffle,
                 num_workers=num_workers,
                 pin_memory=pin_memory,
-                worker_init_fn=worker_init_fn if num_workers > 0 else None,
+                worker_init_fn=worker_init,
                 **kwargs
             )
             

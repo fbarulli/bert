@@ -13,14 +13,15 @@ from typing import Dict, Any
 
 from simpler_fine_bert.common.utils import setup_logging, seed_everything
 from simpler_fine_bert.common.config_utils import load_config
-from simpler_fine_bert.embedding import train_embeddings, validate_embeddings
+from simpler_fine_bert.common.embedding import train_embeddings, validate_embeddings
 from simpler_fine_bert.common.resource import resource_factory
 from simpler_fine_bert.common.parameter_manager import parameter_manager
 from simpler_fine_bert.common.resource_manager import resource_manager
 from simpler_fine_bert.common.worker_manager import worker_manager
 from simpler_fine_bert.common.storage_manager import storage_manager
 from simpler_fine_bert.common.metrics_manager import metrics_manager
-from simpler_fine_bert.common.cuda_utils import cuda_manager
+from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
 from simpler_fine_bert.classification import (
     run_classification_optimization,
     train_final_model
@@ -68,15 +69,18 @@ def main():
         config = load_config("config_embedding.yaml")
         logger.info("Configuration loaded successfully")
         
-        
-        # Initialize managers with loaded config
-        parameter_manager.base_config = config
+        # Initialize resource manager with config first
         resource_manager.config = config
+        
+        # Initialize process resources with config
+        ResourceInitializer.initialize_process(config)
+        
+        # Initialize remaining managers
+        parameter_manager.base_config = config
         worker_manager.n_jobs = config['training']['n_jobs']
         storage_manager.storage_dir = Path(config['output']['dir']) / 'storage'
-        metrics_manager.initialize(cuda_manager.get_device())
-        logger.info("All managers initialized with config")
         
+        logger.info("All managers initialized with config")
         
         logger.info("\n=== Starting Training ===")
         train_model(config)
@@ -87,6 +91,7 @@ def main():
         raise
     finally:
         logger.info("Cleaning up resources...")
+        ResourceInitializer.cleanup_process()
 
 if __name__ == '__main__':
     # Setup logging first for visibility

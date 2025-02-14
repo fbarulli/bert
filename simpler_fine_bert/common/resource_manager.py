@@ -83,8 +83,8 @@ class ProcessResourceManager:
 
     def initialize_process(self, process_id: int, device_id: Optional[int] = None) -> None:
         """Initialize resources for this process."""
-        # Use ResourceInitializer for process initialization
-        ResourceInitializer.initialize_process()
+        # Use ResourceInitializer for process initialization with config
+        ResourceInitializer.initialize_process(self.config)
         
         self.process_id = process_id
         self.device_id = device_id

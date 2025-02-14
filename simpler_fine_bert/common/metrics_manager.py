@@ -6,29 +6,37 @@ import torch.nn as nn
 from typing import Dict, Any, Optional, List
 import math
 
+from simpler_fine_bert.common.base_manager import BaseManager
+from simpler_fine_bert.common.cuda_manager import cuda_manager
+
 logger = logging.getLogger(__name__)
 
-class MetricsManager:
+class MetricsManager(BaseManager):
     """Manager for computing and tracking metrics."""
     
-    def __init__(self):
-        """Initialize metrics manager."""
-        self.initialized = False
-        self.device = None
-        self.loss_fct = None
-        
-    def initialize(self, device: torch.device):
-        """Initialize metrics manager with device."""
-        if not self.initialized:
-            self.device = device
-            self.loss_fct = nn.CrossEntropyLoss(ignore_index=-100).to(device)
-            self.initialized = True
-            logger.debug(f"Initialized metrics manager on {device}")
+    def _initialize_process_local(self):
+        """Initialize process-local attributes."""
+        # Initialize cuda_manager first since we depend on it
+        cuda_manager.ensure_initialized()
+        self._local.device = None
+        self._local.loss_fct = None
     
-    def ensure_initialized(self):
-        """Ensure metrics manager is initialized."""
-        if not self.initialized:
-            raise RuntimeError("MetricsManager not initialized")
+    def get_device(self) -> torch.device:
+        """Get current device."""
+        self.ensure_initialized()
+        if self._local.device is None:
+            if cuda_manager.is_available():
+                self._local.device = torch.device('cuda')
+            else:
+                self._local.device = torch.device('cpu')
+        return self._local.device
+
+    def get_loss_fct(self) -> nn.Module:
+        """Get or create loss function."""
+        self.ensure_initialized()
+        if self._local.loss_fct is None:
+            self._local.loss_fct = nn.CrossEntropyLoss(ignore_index=-100).to(self.get_device())
+        return self._local.loss_fct
     
     def compute_accuracy(
         self,
@@ -102,7 +110,7 @@ class MetricsManager:
             labels = batch['labels']  # [batch_size, seq_len]
             
             # Calculate loss
-            loss = self.loss_fct(logits.view(-1, logits.size(-1)), labels.view(-1))
+            loss = self.get_loss_fct()(logits.view(-1, logits.size(-1)), labels.view(-1))
             
             # Normalize loss by number of masked tokens
             num_masked = (labels != -100).sum().item()
@@ -165,7 +173,7 @@ class MetricsManager:
             labels = batch['labels']  # [batch_size]
             
             # Calculate loss
-            normalized_loss = self.loss_fct(logits, labels)
+            normalized_loss = self.get_loss_fct()(logits, labels)
             
             # Get predictions
             _, preds = logits.max(dim=1)

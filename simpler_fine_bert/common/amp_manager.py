@@ -13,13 +13,18 @@ logger = logging.getLogger(__name__)
 class AMPManager(BaseManager):
     """Process-local automatic mixed precision manager."""
     
-    def _initialize_process_local(self):
+    def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes."""
         try:
-            # Initialize scaler only if CUDA is available
+            # Initialize scaler only if CUDA is available and FP16 is enabled
             if cuda_manager.is_available():
-                self._local.scaler = torch.cuda.amp.GradScaler()
-                logger.info(f"Initialized GradScaler for process {self._local.pid}")
+                training_config = self.get_config_section(config, 'training')
+                if training_config.get('fp16', False):
+                    self._local.scaler = torch.cuda.amp.GradScaler()
+                    logger.info(f"Initialized GradScaler for process {self._local.pid}")
+                else:
+                    self._local.scaler = None
+                    logger.info("FP16 not enabled, AMP disabled")
             else:
                 self._local.scaler = None
                 logger.warning("CUDA not available, AMP disabled")
