@@ -34,11 +34,12 @@ A simplified BERT finetuning package with MLM and classification stages, optimiz
 1. Clone and install:
 ```python
 # Clone repository
-!git clone https://github.com/yourusername/simpler_fine_bert.git
-%cd simpler_fine_bert
+!git clone https://github.com/fbarulli/bert.git
+
+%cd bert
 
 # Install dependencies
-!pip install -e .
+!pip install -e ./bert
 ```
 
 2. Create sample data:
@@ -56,10 +57,8 @@ The training process consists of 4 stages - 2 for MLM (Masked Language Modeling)
 #### MLM Stage 1: Hyperparameter Optimization
 Run Optuna trials to find optimal hyperparameters for MLM:
 ```bash
-python train.py mlm-trials \
-    --config config_mlm.yaml \
-    --study-name "mlm_optimization" \
-    --output-dir "./output/mlm"
+torchrun --nproc_per_node=1 bert/simpler_fine_bert/main.py
+
 ```
 
 #### MLM Stage 2: Full Training
