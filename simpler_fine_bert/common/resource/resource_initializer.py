@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, List, Type, Set
 from dataclasses import dataclass, field
 
 from simpler_fine_bert.base_manager import BaseManager
-from simpler_fine_bert.cuda_manager import cuda_manager
+from simpler_fine_bert.common.cuda_manager import cuda_manager
 from simpler_fine_bert.tensor_manager import tensor_manager
 from simpler_fine_bert.batch_manager import batch_manager
 from simpler_fine_bert.metrics_manager import metrics_manager

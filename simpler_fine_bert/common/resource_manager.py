@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 from simpler_fine_bert.resource_initializer import ResourceInitializer
-from simpler_fine_bert.cuda_manager import cuda_manager
+from simpler_fine_bert.common.cuda_manager import cuda_manager
 
 logger = logging.getLogger(__name__)
 
