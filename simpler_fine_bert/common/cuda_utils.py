@@ -3,12 +3,12 @@
 import logging
 from typing import Optional
 
-from simpler_fine_bert.cuda_manager import cuda_manager
-from simpler_fine_bert.tensor_manager import tensor_manager
-from simpler_fine_bert.batch_manager import batch_manager
-from simpler_fine_bert.metrics_manager import metrics_manager
-from simpler_fine_bert.amp_manager import amp_manager
-from simpler_fine_bert.resource_initializer import ResourceInitializer
+from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.tensor_manager import tensor_manager
+from simpler_fine_bert.common.batch_manager import batch_manager
+from simpler_fine_bert.common.metrics_manager import metrics_manager
+from simpler_fine_bert.common.amp_manager import amp_manager
+from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
 
 logger = logging.getLogger(__name__)
 
