@@ -13,7 +13,7 @@ from typing import Dict, Any
 
 from simpler_fine_bert.common.utils import setup_logging, seed_everything
 from simpler_fine_bert.common.config_utils import load_config
-from simpler_fine_bert.common.embedding import train_embeddings, validate_embeddings
+from simpler_fine_bert.embedding import train_embeddings, validate_embeddings
 from simpler_fine_bert.common.resource import resource_factory
 from simpler_fine_bert.common.parameter_manager import parameter_manager
 from simpler_fine_bert.common.resource_manager import resource_manager
