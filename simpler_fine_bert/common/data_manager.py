@@ -1,7 +1,7 @@
 from __future__ import annotations
 import torch
 import torch.multiprocessing as mp
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader, Dataset
 import logging
 import os
 import traceback
@@ -116,9 +116,7 @@ class DataManager(BaseManager):
         self,
         config: Dict[str, Any],
         dataset: Optional[Dataset] = None,
-        split: str = 'train',
-        world_size: int = 1,
-        rank: int = 0
+        split: str = 'train'
     ) -> DataLoader:
         """Create a dataloader for a dataset.
         
@@ -126,8 +124,6 @@ class DataManager(BaseManager):
             config: Configuration dictionary
             dataset: Optional dataset to create loader for. If None, creates new dataset.
             split: Dataset split if creating new dataset
-            world_size: Number of distributed processes
-            rank: Process rank for distributed training
             
         Returns:
             Created DataLoader instance
@@ -139,33 +135,19 @@ class DataManager(BaseManager):
             if dataset is None:
                 dataset = self.create_dataset(config, split)
 
-            # Create sampler for distributed training
-            sampler = DistributedSampler(
-                dataset,
-                num_replicas=world_size,
-                rank=rank,
-                shuffle=(split == 'train')
-            ) if world_size > 1 else None
-
             # Extract settings from config
             batch_size = config['training']['batch_size']
-            num_workers = config['training']['num_workers']  # Using 2 workers from config
-
-            # Enable distributed training
-            config['training']['distributed']['enabled'] = True
-            config['training']['distributed']['world_size'] = world_size
-            config['training']['distributed']['rank'] = rank
+            num_workers = config['training']['num_workers']
 
             # Create dataloader through manager
             loader = dataloader_manager.create_dataloader(
                 dataset=dataset,
                 batch_size=batch_size,
-                shuffle=(sampler is None and split == 'train'),
+                shuffle=(split == 'train'),
                 num_workers=num_workers,
-                sampler=sampler,
-                pin_memory=None,  # Let dataloader_manager decide based on CUDA availability
+                pin_memory=True,
                 collate_fn=default_collate,
-                persistent_workers=True  # Always use persistent workers with num_workers=2
+                persistent_workers=True
             )
 
             logger.debug(
@@ -195,25 +177,19 @@ class DataManager(BaseManager):
         self,
         train_dataset: Dataset,
         val_dataset: Dataset,
-        config: Dict[str, Any],
-        world_size: int = 1,
-        rank: int = 0
+        config: Dict[str, Any]
     ) -> Tuple[DataLoader, DataLoader]:
         """Create train and validation dataloaders."""
         try:
             train_loader = self.create_dataloader(
                 config,
                 dataset=train_dataset,
-                split='train',
-                world_size=world_size,
-                rank=rank
+                split='train'
             )
             val_loader = self.create_dataloader(
                 config,
                 dataset=val_dataset,
-                split='val',
-                world_size=world_size,
-                rank=rank
+                split='val'
             )
             return train_loader, val_loader
         except Exception as e:
@@ -239,9 +215,7 @@ class DataManager(BaseManager):
 
     def init_process_resources(
         self,
-        config: Dict[str, Any],
-        world_size: int = 1,
-        rank: int = 0
+        config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Initialize process-local resources using shared datasets."""
         self.ensure_initialized()
@@ -260,9 +234,7 @@ class DataManager(BaseManager):
             train_loader, val_loader = self._create_dataloaders(
                 shared['train'],
                 shared['val'],
-                config,
-                world_size,
-                rank
+                config
             )
 
             # Store process-local resources

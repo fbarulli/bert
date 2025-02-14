@@ -1,183 +1,105 @@
 # Simpler Fine BERT
 
-A simplified BERT finetuning package with MLM and classification stages, optimized for running on Google Colab.
+A simplified BERT finetuning package with embedding learning and classification stages, optimized for single GPU training.
 
 ## Features
 
-### MLM Stage
+### Embedding Stage
+- Masked Language Modeling (MLM)
 - Whole Word Masking
-- Span Masking
-- Focal Loss for hard examples
-- SimCSE for better embeddings
-- R-Drop regularization
+- Resource-efficient training
+- Mixed precision (FP16)
 
 ### Classification Stage
 - Uses MLM-finetuned embeddings
-- Layer-wise learning rates
-- Enhanced feature extraction
+- Hyperparameter optimization
+- Resource monitoring
 - Gradient checkpointing
 
 ### Optimization
-- Multi-objective optimization
-- Parameter constraints
-- Historical performance tracking
-- Advanced pruning strategies
+- Optuna trials for hyperparameters
+- Resource-aware worker scaling
+- Memory management
+- Early stopping
 
 ### Monitoring
-- Comprehensive wandb logging
+- Weights & Biases logging
 - Resource tracking
-- Gradient statistics
-- Advanced visualizations
+- Process monitoring
+- Performance metrics
 
-## Running on Colab
+## Training Stages
 
-1. Clone and install:
+The training process consists of three main stages:
+
+### Stage 1: Train Embedding Model
+Train the BERT model to learn better embeddings through MLM:
 ```python
-# Clone repository
-!git clone https://github.com/fbarulli/bert.git
+from simpler_fine_bert.embedding.embedding_training import train_embeddings
+from simpler_fine_bert.common.config_utils import load_config
+from pathlib import Path
 
-%cd bert
-
-# Install dependencies
-!pip install -e ./bert
+config = load_config("config_embedding.yaml")
+output_dir = Path("outputs")
+loss, metrics = train_embeddings(config, output_dir)
 ```
 
-2. Create sample data:
+### Stage 2: Optimize Classification
+Run Optuna trials to find optimal classification hyperparameters:
 ```python
-# Create a simple dataset
-!echo "text,label\nThis is a positive example,positive\nThis is a negative example,negative" > sample.csv
+from simpler_fine_bert.classification.classification_training import run_classification_optimization
+from simpler_fine_bert.common.config_utils import load_config
+
+best_params = run_classification_optimization(
+    embedding_model_path="outputs/embedding_stage/best_model",  # Path to your best embedding model
+    config_path="config_finetune.yaml",  # Classification config
+    study_name="classification_study"  # Optional study name
+)
 ```
 
-3. Run training stages:
+### Stage 3: Train Final Classification Model
+Train the final classification model using the best parameters:
+```python
+from simpler_fine_bert.classification.classification_training import train_final_model
+from simpler_fine_bert.common.config_utils import load_config
+from pathlib import Path
 
-### Training Stages
-
-The training process consists of 4 stages - 2 for MLM (Masked Language Modeling) and 2 for fine-tuning:
-
-#### MLM Stage 1: Hyperparameter Optimization
-Run Optuna trials to find optimal hyperparameters for MLM:
-```bash
-torchrun --nproc_per_node=1 bert/simpler_fine_bert/main.py
-
+train_final_model(
+    embedding_model_path="outputs/embedding_stage/best_model",  # Path to your best embedding model
+    best_params=best_params,  # Parameters from optimization
+    config_path="config_finetune.yaml",  # Classification config
+    output_dir=Path("outputs")  # Optional output directory
+)
 ```
 
-#### MLM Stage 2: Full Training
-Train on full dataset using best hyperparameters from Stage 1:
-```bash
-python train.py mlm-train \
-    --config config_mlm.yaml \
-    --best-trial "./output/mlm/best_trial.json" \
-    --output-dir "./output/mlm_final"
-```
+## Memory Management
 
-#### Fine-tuning Stage 1: Hyperparameter Optimization
-Run Optuna trials to find optimal hyperparameters for fine-tuning:
-```bash
-python train.py finetune-trials \
-    --config config_finetune.yaml \
-    --study-name "finetune_optimization" \
-    --mlm-model "./output/mlm_final/model" \
-    --output-dir "./output/finetune"
-```
-
-#### Fine-tuning Stage 2: Full Training
-Train on full dataset using best hyperparameters from Stage 3:
-```bash
-python train.py finetune-train \
-    --config config_finetune.yaml \
-    --best-trial "./output/finetune/best_trial.json" \
-    --mlm-model "./output/mlm_final/model" \
-    --output-dir "./output/finetune_final"
-```
-
-Each stage outputs:
-- Trained model checkpoints
-- Training metrics and logs
-- Wandb tracking (if enabled)
-- Best hyperparameters (for optimization stages)
-
-## Configuration
-
-The `config_mlm.yaml` file is already optimized for Colab:
-
-```yaml
-# Model configuration
-model_name: 'bert-base-uncased'
-max_length: 512
-num_labels: 2
-hidden_dim: 768
-dropout_rate: 0.1
-
-# Training configuration
-num_epochs: 10
-batch_size: 16  # Reduced for Colab
-gradient_accumulation_steps: 2  # For memory efficiency
-num_workers: 2  # Reduced for Colab
-fp16: true  # Mixed precision training
-
-# MLM configuration
-mlm_weight: 1.0
-simcse_weight: 0.1
-simcse_temperature: 0.05
-rdrop_alpha: 1.0
-
-# Data configuration
-data:
-  train_csv_path: 'sample.csv'  # Local file
-  val_csv_path: 'sample.csv'    # Local file
-  text_column: 'text'
-  label_column: 'label'
-```
-
-## Memory Optimization
-
-The package includes several memory optimizations for Colab:
+The package includes several memory optimizations:
 - Gradient checkpointing
-- Mixed precision training (fp16)
+- Mixed precision (FP16)
 - Gradient accumulation
-- Reduced batch size
-- Efficient data loading
-
-## Monitoring
-
-Training progress can be monitored through:
-1. Weights & Biases dashboard
-2. Local CSV logs
-3. TensorBoard metrics
-4. Console output
+- Resource monitoring
+- Memory-aware worker scaling
 
 ## Outputs
 
-The training process creates:
-1. MLM stage outputs:
+Each training stage produces:
+1. Embedding stage:
    - Best MLM model
-   - Training logs
-   - Metrics
-2. Classification stage outputs:
-   - Best classification model
-   - Evaluation results
-   - Performance plots
+   - Training metrics
+   - Resource logs
+   
+2. Classification optimization:
+   - Best hyperparameters
+   - Trial metrics
+   - Study statistics
+   
+3. Final classification:
+   - Best model checkpoint
+   - Evaluation metrics
+   - Performance analysis
 
-## Requirements
 
-All dependencies are handled by setup.py:
-- PyTorch >= 1.9.0
-- Transformers >= 4.5.0
-- Optuna >= 3.0.0
-- Other ML libraries (numpy, pandas, etc.)
-
-## Troubleshooting
-
-Common Colab issues:
-1. Out of memory:
-   - Reduce batch_size in config
-   - Enable gradient_accumulation
-   - Use gradient_checkpointing
-
-2. Runtime disconnection:
-   - Enable checkpointing
-   - Use wandb for tracking
-   - Save frequent backups
 
 ## License
 

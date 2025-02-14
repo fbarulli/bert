@@ -9,7 +9,7 @@ setup_multiprocessing()
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from simpler_fine_bert.common.utils import setup_logging, seed_everything
 from simpler_fine_bert.common.config_utils import load_config
@@ -68,8 +68,6 @@ def main():
         config = load_config("config_embedding.yaml")
         logger.info("Configuration loaded successfully")
         
-        # Initialize process
-        setup_multiprocessing()
         
         # Initialize managers with loaded config
         parameter_manager.base_config = config

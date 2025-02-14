@@ -149,13 +149,7 @@ class WorkerManager:
         for i in range(self.n_jobs):
             worker_id = start_id + i
             
-            # Set distributed training rank for each worker
-            env = os.environ.copy()
-            env['RANK'] = str(worker_id)
-            env['WORLD_SIZE'] = str(len(self._active_workers) + self.n_jobs)
-            env['LOCAL_RANK'] = str(worker_id % torch.cuda.device_count() if torch.cuda.is_available() else 0)
-            
-            # Create process with environment variables
+            # Create and start worker process
             process = mp.Process(
                 target=self._worker_process,
                 args=(worker_id, group),
@@ -166,11 +160,7 @@ class WorkerManager:
             self._active_workers[worker_id] = process
             self._worker_groups[group][worker_id] = process
             
-            logger.info(
-                f"Started worker {worker_id} in group '{group}' with PID {process.pid} "
-                f"(Rank {worker_id}/{len(self._active_workers)-1}, "
-                f"Local Rank {env['LOCAL_RANK']})"
-            )
+            logger.info(f"Started worker {worker_id} in group '{group}' with PID {process.pid}")
 
     def _worker_process(self, worker_id: int, group: str) -> None:
         """Worker process with enhanced logging and resource management."""
