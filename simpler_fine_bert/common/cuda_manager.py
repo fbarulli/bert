@@ -7,7 +7,7 @@ import weakref
 from typing import Dict, Any, Optional
 from contextlib import contextmanager
 
-from simpler_fine_bert.base_manager import BaseManager
+from simpler_fine_bert.common.base_manager import BaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ class CUDAManager(BaseManager):
         # Setup AMP if enabled
         if config.get('training', {}).get('fp16', False):
             # Import amp_manager here to avoid circular import
-            from simpler_fine_bert.amp_manager import amp_manager
+            from simpler_fine_bert.common.amp_manager import amp_manager
             
             # Initialize amp_manager first
             amp_manager.ensure_initialized()
