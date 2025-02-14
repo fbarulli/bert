@@ -3,12 +3,13 @@ from __future__ import annotations
 """Main entry point for training."""
 
 # Process setup must happen before any other imports
-from simpler_fine_bert.common.process.startup import setup_process, cleanup_distributed
+from simpler_fine_bert.common.process.multiprocessing_setup import setup_multiprocessing
+setup_multiprocessing()
+
 import logging
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
-import torch.distributed as dist
 
 from simpler_fine_bert.common.utils import setup_logging, seed_everything
 from simpler_fine_bert.common.config_utils import load_config
@@ -67,8 +68,8 @@ def main():
         config = load_config("config_embedding.yaml")
         logger.info("Configuration loaded successfully")
         
-        # Initialize process (spawn + distributed)
-        setup_process(config)
+        # Initialize process
+        setup_multiprocessing()
         
         # Initialize managers with loaded config
         parameter_manager.base_config = config
@@ -78,12 +79,6 @@ def main():
         metrics_manager.initialize(cuda_manager.get_device())
         logger.info("All managers initialized with config")
         
-        # Log distributed info if applicable
-        if dist.is_initialized():
-            logger.info(
-                f"Running in distributed mode (rank {dist.get_rank()}"
-                f"/{dist.get_world_size()}, local rank {os.environ['LOCAL_RANK']})"
-            )
         
         logger.info("\n=== Starting Training ===")
         train_model(config)
@@ -94,7 +89,6 @@ def main():
         raise
     finally:
         logger.info("Cleaning up resources...")
-        cleanup_distributed()
 
 if __name__ == '__main__':
     # Setup logging first for visibility

@@ -1,23 +1,17 @@
-# Core dependencies
-torch>=2.0.0  # For distributed training support
-torchrun>=0.2.0  # For launching distributed training
-transformers>=4.30.0  # For BERT models and tokenizers
-datasets>=2.12.0  # For data loading and processing
+# Core ML dependencies
+torch>=2.0.0  # PyTorch for deep learning
+transformers>=4.30.0  # For BERT models
+datasets>=2.12.0  # For data loading
 numpy>=1.24.0  # For numerical operations
-pandas>=2.0.0  # For data manipulation
-scikit-learn>=1.2.0  # For metrics and preprocessing
+pandas>=2.0.0  # For data handling
+scikit-learn>=1.2.0  # For metrics
 
-# Optimization and experiment tracking
-optuna>=3.2.0  # For hyperparameter optimization
+# Optimization
+optuna>=3.2.0  # For hyperparameter tuning
 wandb>=0.15.0  # For experiment tracking
-tensorboard>=2.13.0  # For local visualization
 
-# System monitoring and utilities
-psutil>=5.9.0  # For system resource monitoring
-filelock>=3.12.0  # For file locking in distributed settings
+# System utilities
+psutil>=5.9.0  # For resource monitoring
+filelock>=3.12.0  # For file locking
 tqdm>=4.65.0  # For progress bars
-pyyaml>=6.0  # For config file parsing
-
-# Optional dependencies
-matplotlib>=3.7.0  # For plotting
-seaborn>=0.12.0  # For enhanced plotting
+pyyaml>=6.0  # For config files

@@ -60,7 +60,7 @@ class WorkerManager:
         self._health_check_thread = None
         
         # Initialize process settings
-        from simpler_fine_bert.common.process.startup import setup_process
+        from simpler_fine_bert.common.process.multiprocessing_setup import verify_spawn_method
         
         # Start health check thread
         self._start_health_check_thread()
@@ -156,16 +156,9 @@ class WorkerManager:
             env['LOCAL_RANK'] = str(worker_id % torch.cuda.device_count() if torch.cuda.is_available() else 0)
             
             # Create process with environment variables
-            # Create process with environment
-            env_copy = env.copy()
-            env_copy.update({
-                'PYTHONPATH': os.environ.get('PYTHONPATH', ''),
-                'CUDA_VISIBLE_DEVICES': os.environ.get('CUDA_VISIBLE_DEVICES', '')
-            })
-            
             process = mp.Process(
                 target=self._worker_process,
-                args=(worker_id, group, env_copy),
+                args=(worker_id, group),
                 daemon=True
             )
             process.start()
@@ -179,19 +172,15 @@ class WorkerManager:
                 f"Local Rank {env['LOCAL_RANK']})"
             )
 
-    def _worker_process(self, worker_id: int, group: str, env: Dict[str, str]) -> None:
+    def _worker_process(self, worker_id: int, group: str) -> None:
         """Worker process with enhanced logging and resource management."""
         current_pid = os.getpid()
         logger.info(f"\n=== Worker {worker_id} Starting ===")
         logger.info(f"Process ID: {current_pid}")
         logger.info(f"Parent Process ID: {os.getppid()}")
         
-        # Set environment variables
-        for key, value in env.items():
-            os.environ[key] = value
-            
-        # Initialize process
-        setup_process()
+        # Verify spawn method
+        verify_spawn_method()
         
         # Create study connection
         study = optuna.load_study(

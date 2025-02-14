@@ -19,50 +19,22 @@ training:
   n_startup_trials: 5
   study_name: "embedding_study"
   num_workers: 2
-  fp16: True
+  fp16: true  # Use mixed precision training
   log_every_n_steps: 100
-  optimizer_type: "adamw"      # Optimizer type (adamw, adam, sgd)
-  
-  # Profiling configuration
-  profiler:
-    enabled: false  # Disabled to focus on training
-    activities: ["cpu", "cuda"]  # What to profile
-    schedule:
-      wait: 2       # Number of steps to wait before profiling
-      warmup: 2     # Number of steps to warmup
-      active: 6     # Number of steps to profile
-      repeat: 1     # Number of times to repeat profiling cycle
-    record_shapes: true      # Record tensor shapes
-    profile_memory: true     # Profile memory usage
-    with_stack: true        # Record stack traces
-    with_flops: true        # Estimate FLOPs
-    export_chrome_trace: true  # Export Chrome trace for visualization
-    
-  # CUDA graph configuration
-  cuda_graph:
-    enabled: false  # Enable/disable CUDA graphs
-    warmup_steps: 10  # Steps to warm up before capturing graph
-    static_shapes: true  # Use static shapes for inputs
-    batch_size: null  # Use training batch size if null
-    capture_stream: null  # Use default CUDA stream if null
-    
-  # Single GPU configuration
-  device:
-    type: "cuda"  # Use CUDA for GPU acceleration
-    precision: "fp16"  # Use mixed precision training
-  learning_rate: 5.0e-5        # Increased base learning rate for small batch
-  weight_decay: 0.01          # Standard BERT weight decay
-  warmup_ratio: 0.06          # Standard BERT warmup ratio (6% of steps)
-  hidden_dropout_prob: 0.1     # Default hidden dropout (standard BERT default)
-  attention_probs_dropout_prob: 0.1  # Default attention dropout (standard BERT default)
+  optimizer_type: "adamw"  # Optimizer type (adamw, adam, sgd)
+  learning_rate: 5.0e-5  # Base learning rate
+  weight_decay: 0.01  # Weight decay
+  warmup_ratio: 0.06  # Warmup ratio
+  hidden_dropout_prob: 0.1  # Hidden dropout
+  attention_probs_dropout_prob: 0.1  # Attention dropout
 
-  # Scheduler subsection
+  # Scheduler settings
   scheduler:
-    type: "linear"  # Standard BERT scheduler
+    type: "linear"  # Scheduler type
     warmup_ratio: 0.06  # Match training warmup_ratio
     min_lr_ratio: 0.0
-    use_scheduler: True
-    num_cycles: 0.5 # For cosine_with_restarts
+    use_scheduler: true
+    num_cycles: 0.5  # For cosine_with_restarts
 
 data:
   csv_path: "sample_m.csv"  # do not change
@@ -70,8 +42,7 @@ data:
   max_length: 512
   embedding_mask_probability: 0.15  # Standard BERT masking probability
   max_predictions: 20
-  max_span_length: 1          # Single token masking for now
-  num_workers: 0 # Added num_workers
+  max_span_length: 1  # Single token masking for now
 
 model:
   name: "bert-base-uncased"
@@ -96,9 +67,9 @@ hyperparameters:
     min: 0.1
     max: 0.3
   max_span_length:
-      type: "int"
-      min: 1
-      max: 5
+    type: "int"
+    min: 1
+    max: 5
   hidden_dropout_prob:
     type: "float"
     min: 0.0
@@ -108,9 +79,10 @@ hyperparameters:
     min: 0.0
     max: 0.3
 
-# Added resources section
+# Resource limits
 resources:
-  max_memory_gb: 22.5 # DO NOT CHANGE
+  max_memory_gb: 22.5  # DO NOT CHANGE
+  gpu_memory_gb: 10.0  # Maximum GPU memory usage
   garbage_collection_threshold: 0.7
   max_split_size_mb: 2048
   max_time_hours: 24
