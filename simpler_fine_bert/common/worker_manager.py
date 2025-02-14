@@ -59,9 +59,8 @@ class WorkerManager:
         self._last_health_check = time.time()
         self._health_check_thread = None
         
-        # Verify spawn method is set
-        from simpler_fine_bert.common.process.multiprocessing_setup import verify_spawn_method
-        verify_spawn_method()
+        # Initialize process settings
+        from simpler_fine_bert.common.process.startup import setup_process
         
         # Start health check thread
         self._start_health_check_thread()
@@ -157,19 +156,19 @@ class WorkerManager:
             env['LOCAL_RANK'] = str(worker_id % torch.cuda.device_count() if torch.cuda.is_available() else 0)
             
             # Create process with environment variables
+            # Create process with environment
+            env_copy = env.copy()
+            env_copy.update({
+                'PYTHONPATH': os.environ.get('PYTHONPATH', ''),
+                'CUDA_VISIBLE_DEVICES': os.environ.get('CUDA_VISIBLE_DEVICES', '')
+            })
+            
             process = mp.Process(
                 target=self._worker_process,
-                args=(worker_id, group),
+                args=(worker_id, group, env_copy),
                 daemon=True
             )
-            # Set environment variables before starting
-            original_env = os.environ.copy()
-            for key, value in env.items():
-                os.environ[key] = value
             process.start()
-            # Restore original environment
-            os.environ.clear()
-            os.environ.update(original_env)
             
             self._active_workers[worker_id] = process
             self._worker_groups[group][worker_id] = process
@@ -180,19 +179,26 @@ class WorkerManager:
                 f"Local Rank {env['LOCAL_RANK']})"
             )
 
-    def _worker_process(self, worker_id: int, group: str) -> None:
+    def _worker_process(self, worker_id: int, group: str, env: Dict[str, str]) -> None:
         """Worker process with enhanced logging and resource management."""
         current_pid = os.getpid()
         logger.info(f"\n=== Worker {worker_id} Starting ===")
         logger.info(f"Process ID: {current_pid}")
         logger.info(f"Parent Process ID: {os.getppid()}")
         
-        # Create a fresh study connection for this worker
+        # Set environment variables
+        for key, value in env.items():
+            os.environ[key] = value
+            
+        # Initialize process
+        setup_process()
+        
+        # Create study connection
         study = optuna.load_study(
             study_name=self.study_name,
             storage=self.storage_url
         )
-        logger.info(f"Worker {worker_id} connected to study")
+        logger.info(f"Worker {worker_id} initialized and connected to study")
         
         try:
             import threading

@@ -46,16 +46,10 @@ training:
     batch_size: null  # Use training batch size if null
     capture_stream: null  # Use default CUDA stream if null
     
-  # Distributed training configuration
-  distributed:
-    enabled: true  # Enable distributed training
-    backend: "nccl"  # DDP backend (nccl for GPU, gloo for CPU)
-    world_size: 2  # Number of processes
-    rank: 0  # Global rank of this process
-    local_rank: 0  # Local rank on this node
-    init_method: "env://"  # Process group initialization method
-    timeout: 1800  # Timeout in seconds for operations
-    find_unused_parameters: false  # Find unused parameters in DDP
+  # Single GPU configuration
+  device:
+    type: "cuda"  # Use CUDA for GPU acceleration
+    precision: "fp16"  # Use mixed precision training
   learning_rate: 5.0e-5        # Increased base learning rate for small batch
   weight_decay: 0.01          # Standard BERT weight decay
   warmup_ratio: 0.06          # Standard BERT warmup ratio (6% of steps)
