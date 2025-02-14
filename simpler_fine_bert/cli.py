@@ -3,14 +3,21 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 import optuna
-import torch  # Add missing import
+import torch
 
-from simpler_fine_bert.data_manager import data_manager
-from simpler_fine_bert.model_manager import model_manager
-from simpler_fine_bert.cuda_utils import cuda_manager
+from simpler_fine_bert.common.managers import (
+    get_data_manager,
+    get_model_manager,
+    get_cuda_manager,
+    get_optuna_manager
+)
 from simpler_fine_bert.embedding import EmbeddingTrainer
-from simpler_fine_bert.utils import create_optimizer
-from simpler_fine_bert.optuna_manager import OptunaManager
+from simpler_fine_bert.common.utils import create_optimizer
+
+# Get manager instances
+data_manager = get_data_manager()
+model_manager = get_model_manager()
+cuda_manager = get_cuda_manager()
 
 logger = logging.getLogger(__name__)
 
@@ -121,11 +128,10 @@ def run_embedding_trials(config: Dict[str, Any]) -> Optional[optuna.trial.Frozen
             raise ValueError("Missing 'study_name' in training config")
             
         # Create study manager with direct config access
-        study_manager = OptunaManager(
+        study_manager = get_optuna_manager()(
             study_name=config['training']['study_name'],  # Direct access
             config=config,
-            storage_dir=Path(config['output']['dir']),
-            n_jobs=config['training']['n_jobs']  # Direct access
+            storage_dir=Path(config['output']['dir'])
         )
         
         # Run optimization - each worker will initialize its own resources

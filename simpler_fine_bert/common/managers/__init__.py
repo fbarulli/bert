@@ -7,6 +7,7 @@ def get_amp_manager():
     return amp_manager
 
 def get_batch_manager():
+    
     from simpler_fine_bert.common.managers.batch_manager import batch_manager
     return batch_manager
 
@@ -62,6 +63,10 @@ def get_wandb_manager():
     from simpler_fine_bert.common.managers.wandb_manager import wandb_manager
     return wandb_manager
 
+def get_optuna_manager():
+    from simpler_fine_bert.common.managers.optuna_manager import optuna_manager
+    return optuna_manager
+
 __all__ = [
     'get_amp_manager',
     'get_batch_manager',
@@ -77,5 +82,6 @@ __all__ = [
     'get_tensor_manager',
     'get_tokenizer_manager',
     'get_worker_manager',
-    'get_wandb_manager'
+    'get_wandb_manager',
+    'get_optuna_manager'
 ]

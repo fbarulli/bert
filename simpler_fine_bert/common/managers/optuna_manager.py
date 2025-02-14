@@ -1,4 +1,4 @@
-# simpler_fine_bert/optuna_manager.py
+# simpler_fine_bert/common/managers/optuna_manager.py
 
 import logging
 import os
@@ -20,13 +20,23 @@ class OptunaManager:
     """Manages optimization process using Optuna."""
     
     _local = threading.local()
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(
         self,
-        study_name: str,
-        config: Dict[str, Any],
+        study_name: str = None,
+        config: Dict[str, Any] = None,
         storage_dir: Optional[Path] = None,
     ):
+        # Skip initialization if already initialized
+        if hasattr(self, 'initialized'):
+            return
+            
         # Initialize process-local storage
         if not hasattr(self._local, 'initialized'):
             self._local.pid = os.getpid()
@@ -34,44 +44,47 @@ class OptunaManager:
             logger.info(f"OptunaManager initialized for process {self._local.pid}")
 
         # Initialize components
-        self.study_name = study_name
-        self.study_config = StudyConfig(config)
-        self.study_config.validate_config()  # Now properly delegated to parameter_manager
+        if study_name and config:
+            self.study_name = study_name
+            self.study_config = StudyConfig(config)
+            self.study_config.validate_config()  # Now properly delegated to parameter_manager
 
-        self.storage = StudyStorage(storage_dir or Path.cwd())
-        self.storage_url = self.storage.get_storage_url()
+            self.storage = StudyStorage(storage_dir or Path.cwd())
+            self.storage_url = self.storage.get_storage_url()
 
-        # Create or load study
-        logger.info("\n=== Creating/Loading Study ===")
-        logger.info(f"Study name: {study_name}")
-        logger.info(f"Storage URL: {self.storage_url}")
-        logger.info(f"Sampler type: {type(self.study_config.sampler)}")
-        logger.info(f"Sampler parameters: {self.study_config.sampler.__dict__}")
-        
-        try:
-            self.study = optuna.create_study(
-                study_name=study_name,
-                storage=self.storage_url,
-                sampler=self.study_config.sampler,
-                direction='minimize',
-                load_if_exists=True
-            )
-            logger.info("Study created/loaded successfully")
-            logger.info(f"Study ID: {self.study._study_id}")
-            logger.info(f"Study direction: {self.study.direction}")
-            logger.info(f"Study system attrs: {self.study.system_attrs}")
-        except Exception as e:
-            logger.error(f"Failed to create/load study: {str(e)}")
-            logger.error(f"Traceback:\n{traceback.format_exc()}")
-            raise
+            # Create or load study
+            logger.info("\n=== Creating/Loading Study ===")
+            logger.info(f"Study name: {study_name}")
+            logger.info(f"Storage URL: {self.storage_url}")
+            logger.info(f"Sampler type: {type(self.study_config.sampler)}")
+            logger.info(f"Sampler parameters: {self.study_config.sampler.__dict__}")
+            
+            try:
+                self.study = optuna.create_study(
+                    study_name=study_name,
+                    storage=self.storage_url,
+                    sampler=self.study_config.sampler,
+                    direction='minimize',
+                    load_if_exists=True
+                )
+                logger.info("Study created/loaded successfully")
+                logger.info(f"Study ID: {self.study._study_id}")
+                logger.info(f"Study direction: {self.study.direction}")
+                logger.info(f"Study system attrs: {self.study.system_attrs}")
+            except Exception as e:
+                logger.error(f"Failed to create/load study: {str(e)}")
+                logger.error(f"Traceback:\n{traceback.format_exc()}")
+                raise
 
-        # Initialize queues
-        self.worker_queue = mp.Queue()
-        self.result_queue = mp.Queue()
-        self._active_workers = {}
+            # Initialize queues
+            self.worker_queue = mp.Queue()
+            self.result_queue = mp.Queue()
+            self._active_workers = {}
 
-        # Log study state
-        self._log_study_state()
+            # Log study state
+            self._log_study_state()
+
+        self.initialized = True
 
     def _log_study_state(self) -> None:
         """Log current state of the study."""
@@ -286,3 +299,6 @@ class OptunaManager:
             self._cleanup_workers()
             self.storage.log_database_status()
             logger.info("Optimization completed")
+
+# Create singleton instance
+optuna_manager = OptunaManager()

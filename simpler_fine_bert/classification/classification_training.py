@@ -21,8 +21,8 @@ from simpler_fine_bert.common.managers import get_tokenizer_manager
 # Get manager instance
 tokenizer_manager = get_tokenizer_manager()
 from simpler_fine_bert.classification.dataset import CSVDataset
-from simpler_fine_bert.common.optuna_manager import OptunaManager
 from simpler_fine_bert.common.utils import seed_everything as set_seed, create_optimizer, create_scheduler
+from simpler_fine_bert.common.managers import get_optuna_manager
 
 from simpler_fine_bert.common.config_utils import load_config
 
@@ -86,7 +86,7 @@ def run_classification_optimization(embedding_model_path: str, config_path: str,
     train_labels, val_labels = get_texts_and_labels(config)
 
     # Setup optimization manager
-    study_manager = OptunaManager(
+    study_manager = get_optuna_manager()(
         study_name=study_name,
         config=config,
         storage_dir=output_dir

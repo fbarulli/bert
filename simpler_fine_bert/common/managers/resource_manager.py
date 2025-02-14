@@ -98,7 +98,7 @@ class ProcessResourceManager:
     def _create_process_resources(self) -> None:
         """Create new resources specific to this process."""
         try:
-            from simpler_fine_bert.data_manager import DataManager
+            from simpler_fine_bert.common.managers.data_manager import DataManager
 
             # Get process-specific device using initialized cuda_manager
             device = cuda_manager.get_device()

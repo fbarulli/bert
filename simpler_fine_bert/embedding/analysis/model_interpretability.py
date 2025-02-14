@@ -21,7 +21,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 
-from simpler_fine_bert.cuda_utils import tensor_manager, metrics_manager
+from simpler_fine_bert.common.managers import get_tensor_manager, get_metrics_manager
+
+# Get manager instances
+tensor_manager = get_tensor_manager()
+metrics_manager = get_metrics_manager()
 
 # Configure logging
 logging.basicConfig(
