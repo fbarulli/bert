@@ -24,7 +24,7 @@ from simpler_fine_bert.common.utils import seed_everything as set_seed, create_o
 from simpler_fine_bert.common.config_utils import load_config
 from simpler_fine_bert.common.cuda_utils import cuda_manager
 from simpler_fine_bert.common.data_manager import dataloader_manager
-from simpler_fine_bert.classification.trainer import ClassificationTrainer
+from simpler_fine_bert.classification.classification_trainer import ClassificationTrainer
 
 logger = logging.getLogger(__name__)
 

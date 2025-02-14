@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 from transformers import BertConfig
 
-from simpler_fine_bert.embedding.trainer import EmbeddingTrainer
+from simpler_fine_bert.embedding.embedding_trainer import EmbeddingTrainer
 from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
 from simpler_fine_bert.common.dataloader_manager import create_dataloaders
 from simpler_fine_bert.common.wandb_manager import WandbManager

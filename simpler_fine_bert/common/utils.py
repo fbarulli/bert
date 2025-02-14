@@ -79,7 +79,7 @@ def get_memory_usage() -> Dict[str, float]:
 
 def clear_memory() -> None:
     # Clean up tokenizer resources
-    from simpler_fine_bert.tokenizer_manager import tokenizer_manager
+    from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
     tokenizer_manager.cleanup_worker(os.getpid())
     
     # Standard memory cleanup
@@ -206,8 +206,8 @@ def init_worker():
 
 def init_shared_resources(config: Dict[str, Any]) -> Dict[str, Any]:
     """Initialize only non-CUDA resources in main process."""
-    from simpler_fine_bert.data_manager import data_manager
-    from simpler_fine_bert.tokenizer_manager import tokenizer_manager
+    from simpler_fine_bert.common.data_manager import data_manager
+    from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
     
     # Initialize data resources
     resources = data_manager.init_resources(config)
