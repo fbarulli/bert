@@ -2,20 +2,22 @@ from __future__ import annotations
 import torch
 import logging
 import traceback
-from typing import Optional, Union, List, Tuple
+from typing import Optional, Union, List, Tuple, Dict, Any
 import numpy as np
 
 from simpler_fine_bert.common.base_manager import BaseManager
-from simpler_fine_bert.common.cuda_manager import cuda_manager  # Correct import
-
+from simpler_fine_bert.common.cuda_manager import cuda_manager
 
 logger = logging.getLogger(__name__)
 
 class TensorManager(BaseManager):
     """Process-local tensor manager for device placement and memory management."""
     
-    def _initialize_process_local(self):
+    def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes."""
+        # Call parent's initialization first
+        super()._initialize_process_local(config)
+        
         # Initialize cuda_manager first since we depend on it
         cuda_manager.ensure_initialized()
         self._local.device = None

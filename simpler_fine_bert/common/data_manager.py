@@ -7,7 +7,7 @@ import os
 import traceback
 from pathlib import Path
 from filelock import FileLock
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 from transformers import PreTrainedTokenizerFast
 from torch.utils.data.dataloader import default_collate
 import threading
@@ -15,11 +15,8 @@ import threading
 from simpler_fine_bert.common.base_manager import BaseManager
 from simpler_fine_bert.common.dataloader_manager import dataloader_manager
 from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
-
-def get_embedding_dataset():
-    """Get EmbeddingDataset class at runtime to avoid circular imports."""
-    from simpler_fine_bert.embedding import EmbeddingDataset
-    return EmbeddingDataset
+from simpler_fine_bert.embedding.dataset import EmbeddingDataset
+from simpler_fine_bert.classification.dataset import CSVDataset
 
 def get_tokenizer_manager():
     """Get tokenizer manager instance at runtime to avoid circular imports."""
@@ -94,7 +91,6 @@ class DataManager(BaseManager):
                 raise ValueError(f"Invalid split: {split}")
                 
             tokenizer = self.get_tokenizer(config)
-            EmbeddingDataset = get_embedding_dataset()
             
             dataset = EmbeddingDataset(
                 data_path=Path(config['data']['csv_path']),
@@ -288,10 +284,7 @@ class DataManager(BaseManager):
         """
         try:
             # Get appropriate dataset class
-            if is_embedding:
-                from simpler_fine_bert.embedding.dataset import EmbeddingDataset as DatasetClass
-            else:
-                from simpler_fine_bert.classification.dataset import CSVDataset as DatasetClass
+            DatasetClass = EmbeddingDataset if is_embedding else CSVDataset
             
             # Create datasets
             dataset_kwargs = {
@@ -343,8 +336,8 @@ class DataManager(BaseManager):
         """Validate that all required resources exist and are of correct type."""
         required = {
             'tokenizer': PreTrainedTokenizerFast,
-            'train_dataset': get_embedding_dataset(),
-            'val_dataset': get_embedding_dataset(),
+            'train_dataset': EmbeddingDataset,
+            'val_dataset': EmbeddingDataset,
             'train_loader': DataLoader,
             'val_loader': DataLoader
         }

@@ -14,8 +14,11 @@ logger = logging.getLogger(__name__)
 class MetricsManager(BaseManager):
     """Manager for computing and tracking metrics."""
     
-    def _initialize_process_local(self):
+    def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes."""
+        # Call parent's initialization first
+        super()._initialize_process_local(config)
+        
         # Initialize cuda_manager first since we depend on it
         cuda_manager.ensure_initialized()
         self._local.device = None

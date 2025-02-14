@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 class TokenizerManager(BaseManager):
     """Process-local tokenizer manager."""
     
-    def _initialize_process_local(self) -> None:
+    def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes."""
-        super()._initialize_process_local()
+        # Call parent's initialization first
+        super()._initialize_process_local(config)
         
         logger.info(f"Initializing TokenizerManager for process {os.getpid()}")
         

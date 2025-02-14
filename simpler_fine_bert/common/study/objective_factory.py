@@ -18,7 +18,8 @@ from torch.optim import Optimizer
 from simpler_fine_bert.common.cuda_utils import cuda_manager
 from simpler_fine_bert.common.dataloader_manager import dataloader_manager
 from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
-from simpler_fine_bert.embedding import EmbeddingDataset, EmbeddingTrainer
+from simpler_fine_bert.embedding.dataset import EmbeddingDataset
+from simpler_fine_bert.embedding.embedding_trainer import EmbeddingTrainer
 from simpler_fine_bert.common.utils import create_optimizer
 from simpler_fine_bert.common.resource_manager import resource_manager
 

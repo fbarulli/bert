@@ -2,7 +2,7 @@ from __future__ import annotations
 import torch
 import logging
 import traceback
-from typing import Optional
+from typing import Optional, Dict, Any
 from contextlib import contextmanager
 
 from simpler_fine_bert.common.base_manager import BaseManager
@@ -16,6 +16,9 @@ class AMPManager(BaseManager):
     def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes."""
         try:
+            # Call parent's initialization first
+            super()._initialize_process_local(config)
+            
             # Initialize scaler only if CUDA is available and FP16 is enabled
             if cuda_manager.is_available():
                 training_config = self.get_config_section(config, 'training')
