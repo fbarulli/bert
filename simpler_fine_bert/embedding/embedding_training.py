@@ -23,9 +23,7 @@ def train_embeddings(
     is_trial: bool = False,
     trial: Optional['optuna.Trial'] = None,
     wandb_manager: Optional[WandbManager] = None,
-    job_id: Optional[int] = None,
-    world_size: int = 1,
-    rank: int = 0
+    job_id: Optional[int] = None
 ) -> Tuple[float, Dict[str, Any]]:
     """Train a BERT model to learn embeddings through masked token prediction.
     
@@ -36,8 +34,6 @@ def train_embeddings(
         trial: Optuna trial object if is_trial=True
         wandb_manager: Optional W&B logging manager
         job_id: Optional job ID for parallel training
-        world_size: Number of distributed processes (default: 1)
-        rank: Process rank for distributed training (default: 0)
         
     Returns:
         Tuple of (best validation loss, metrics dictionary)
@@ -50,16 +46,12 @@ def train_embeddings(
         try:
             train_dataset, val_dataset = resource_manager.create_datasets(
                 config,
-                stage='embedding',
-                world_size=world_size,
-                rank=rank
+                stage='embedding'
             )
             train_loader, val_loader = resource_manager.create_dataloaders(
                 config,
                 train_dataset,
-                val_dataset,
-                world_size=world_size,
-                rank=rank
+                val_dataset
             )
             
             model = resource_factory.create_resource('model', config)
@@ -82,9 +74,7 @@ def train_embeddings(
             wandb_manager=wandb_manager,
             job_id=job_id,
             train_dataset=train_dataset,
-            val_dataset=val_dataset,
-            world_size=world_size,
-            rank=rank
+            val_dataset=val_dataset
         )
         
         try:
@@ -120,9 +110,7 @@ def validate_embeddings(
     model_path: str,
     data_path: str,
     config: Dict[str, Any],
-    output_dir: Optional[str] = None,
-    world_size: int = 1,
-    rank: int = 0
+    output_dir: Optional[str] = None
 ) -> Dict[str, float]:
     """Validate a trained embedding model.
     
@@ -131,8 +119,6 @@ def validate_embeddings(
         data_path: Path to validation data
         config: Model configuration
         output_dir: Optional output directory for metrics
-        world_size: Number of distributed processes (default: 1)
-        rank: Process rank for distributed training (default: 0)
         
     Returns:
         Dictionary of validation metrics
@@ -150,16 +136,12 @@ def validate_embeddings(
         try:
             _, val_dataset = resource_manager.create_datasets(
                 val_config,
-                stage='embedding',
-                world_size=world_size,
-                rank=rank
+                stage='embedding'
             )
             _, val_loader = resource_manager.create_dataloaders(
                 val_config,
                 None,
-                val_dataset,
-                world_size=world_size,
-                rank=rank
+                val_dataset
             )
             
             # For validation, we need to load a specific model checkpoint
@@ -180,9 +162,7 @@ def validate_embeddings(
             config=config,
             metrics_dir=output_dir / 'metrics' if output_dir else None,
             is_trial=False,
-            val_dataset=val_dataset,
-            world_size=world_size,
-            rank=rank
+            val_dataset=val_dataset
         )
         
         try:

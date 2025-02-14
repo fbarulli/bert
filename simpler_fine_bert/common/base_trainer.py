@@ -12,10 +12,8 @@ from typing import Dict, Any, Optional, List, Tuple, Union
 import torch
 import torch.nn as nn
 import optuna
-from torch.utils.data import DataLoader, Dataset, DistributedSampler
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel
 from torch.profiler import profile, record_function, ProfilerActivity
 from torch.optim import Optimizer
 import matplotlib.pyplot as plt
@@ -44,9 +42,7 @@ class BaseTrainer:
         wandb_manager: Optional['WandbManager'] = None,
         job_id: Optional[int] = None,
         train_dataset: Optional[Any] = None,
-        val_dataset: Optional[Any] = None,
-        world_size: int = 1,
-        rank: int = 0
+        val_dataset: Optional[Any] = None
     ):
         """Initialize trainer."""
         # Store basic attributes
@@ -70,11 +66,7 @@ class BaseTrainer:
         self.eval_interval = config['training']['eval_steps']
         self.use_amp = config['training']['fp16']
         
-        # Setup feature configurations first
-        distributed_config = config.get('training', {}).get('distributed', {})
-        self.use_ddp = distributed_config.get('enabled', False)
-        self.distributed_config = distributed_config
-        
+        # Setup feature configurations
         profiler_config = config.get('training', {}).get('profiler', {})
         self.use_profiler = profiler_config.get('enabled', False)
         self.profiler_config = profiler_config
@@ -85,39 +77,9 @@ class BaseTrainer:
         self.static_batch = None
         self.static_graph = None
         
-        # Initialize distributed training if enabled
-        if self.use_ddp:
-            self._init_distributed(world_size=world_size, rank=rank)
-            
-        # Setup data loaders with distributed sampler if needed
-        if self.use_ddp:
-            train_sampler = DistributedSampler(train_dataset) if train_dataset else None
-            val_sampler = DistributedSampler(val_dataset, shuffle=False) if val_dataset else None
-            
-            if train_sampler:
-                self.train_loader = DataLoader(
-                    train_dataset,
-                    batch_size=train_loader.batch_size,
-                    sampler=train_sampler,
-                    num_workers=train_loader.num_workers,
-                    pin_memory=train_loader.pin_memory
-                )
-            else:
-                self.train_loader = train_loader
-                
-            if val_sampler:
-                self.val_loader = DataLoader(
-                    val_dataset,
-                    batch_size=val_loader.batch_size,
-                    sampler=val_sampler,
-                    num_workers=val_loader.num_workers,
-                    pin_memory=val_loader.pin_memory
-                )
-            else:
-                self.val_loader = val_loader
-        else:
-            self.train_loader = train_loader
-            self.val_loader = val_loader
+        # Setup data loaders
+        self.train_loader = train_loader
+        self.val_loader = val_loader
         
         # Setup device and model
         self.device = self._setup_device()
@@ -125,15 +87,6 @@ class BaseTrainer:
         
         # Initialize model weights if needed
         self._initialize_weights()
-        
-        # Setup DDP if enabled
-        if self.use_ddp:
-            self.model = DistributedDataParallel(
-                self.model,
-                device_ids=[self.local_rank] if torch.cuda.is_available() else None,
-                output_device=self.local_rank if torch.cuda.is_available() else None,
-                find_unused_parameters=self.distributed_config.get('find_unused_parameters', False)
-            )
         
         # Create metrics logger
         self.metrics_logger = MetricsLogger(
@@ -168,7 +121,6 @@ class BaseTrainer:
             f"Initialized trainer with:\n"
             f"- Device: {self.device}\n"
             f"- AMP: {self.use_amp}\n"
-            f"- DDP: {self.use_ddp}\n"
             f"- Gradient accumulation: {self.gradient_accumulation}\n"
             f"- CUDA graph: {self.use_cuda_graph}"
         )
@@ -287,23 +239,13 @@ class BaseTrainer:
         with record_function("loss_scale"):
             loss = loss / self.gradient_accumulation
         
-        if self.accumulation_step < self.gradient_accumulation - 1:
-            with record_function("backward_accumulate"):
-                with self.model.no_sync() if self.use_ddp else nullcontext():
-                    cuda_manager.amp.backward_step(
-                        loss=loss,
-                        model=self.model,
-                        optimizer=optimizer,
-                        grad_norm=self.grad_norm
-                    )
-        else:
-            with record_function("backward_sync"):
-                cuda_manager.amp.backward_step(
-                    loss=loss,
-                    model=self.model,
-                    optimizer=optimizer,
-                    grad_norm=self.grad_norm
-                )
+        with record_function("backward_step"):
+            cuda_manager.amp.backward_step(
+                loss=loss,
+                model=self.model,
+                optimizer=optimizer,
+                grad_norm=self.grad_norm
+            )
 
     def train_step(
         self,
@@ -368,8 +310,6 @@ class BaseTrainer:
         optimizer: Optimizer
     ) -> Dict[str, float]:
         """Train for one epoch."""
-        if self.use_ddp and isinstance(self.train_loader.sampler, DistributedSampler):
-            self.train_loader.sampler.set_epoch(epoch)
         try:
             pbar = tqdm(
                 self.train_loader,
@@ -552,71 +492,20 @@ class BaseTrainer:
         if hasattr(self, 'compute_task_metrics'):
             metrics.update(self.compute_task_metrics(outputs, batch))
         return metrics
-        
-    def _init_distributed(self, world_size: int = 1, rank: int = 0) -> None:
-        """Initialize distributed training."""
-        try:
-            # Store distributed training parameters
-            self.world_size = self.distributed_config.get('world_size', -1)
-            self.rank = self.distributed_config.get('rank', -1)
-            self.local_rank = self.distributed_config.get('local_rank', -1)
-
-            # Override with passed values if not default
-            if world_size != 1:
-                self.world_size = world_size
-            if rank != 0:
-                self.rank = rank
-            backend = self.distributed_config.get('backend', 'nccl')
-            init_method = self.distributed_config.get('init_method', 'env://')
-            timeout = self.distributed_config.get('timeout', 1800)
-            
-            if self.world_size == -1:
-                self.world_size = int(os.environ.get('WORLD_SIZE', 1))
-            if self.rank == -1:
-                self.rank = int(os.environ.get('RANK', 0))
-            if self.local_rank == -1:
-                self.local_rank = int(os.environ.get('LOCAL_RANK', 0))
-            
-            if not dist.is_initialized():
-                dist.init_process_group(
-                    backend=backend,
-                    init_method=init_method,
-                    world_size=self.world_size,
-                    rank=self.rank,
-                    timeout=datetime.timedelta(seconds=timeout)
-                )
-                
-            logger.info(
-                f"Initialized distributed training:\n"
-                f"- World size: {self.world_size}\n"
-                f"- Global rank: {self.rank}\n"
-                f"- Local rank: {self.local_rank}\n"
-                f"- Backend: {backend}"
-            )
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize distributed training: {str(e)}")
-            logger.error(traceback.format_exc())
-            raise
 
     def _setup_device(self) -> torch.device:
         """Setup device for training."""
         if torch.cuda.is_available():
-            if self.use_ddp:
-                return torch.device(f'cuda:{self.local_rank}')
-            else:
-                return torch.device('cuda:0')
+            return torch.device('cuda:0')
         return torch.device('cpu')
 
     def save_model(self) -> None:
-        """Save model with distributed support."""
-        if not self.is_trial and (not self.use_ddp or self.rank == 0):
+        """Save model."""
+        if not self.is_trial:
             save_dir = self.metrics_dir.parent / 'model'
             save_dir.mkdir(exist_ok=True)
             
-            model_to_save = self.model.module if self.use_ddp else self.model
-            model_to_save.save_pretrained(save_dir)
-            
+            self.model.save_pretrained(save_dir)
             logger.info(f"Saved model to {save_dir}")
 
     def cleanup_memory(self, aggressive: bool = False) -> None:

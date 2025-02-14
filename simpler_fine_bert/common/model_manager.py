@@ -10,8 +10,6 @@ import os
 import gc
 import weakref
 import threading
-import torch.distributed as dist
-import torch.distributed.rpc as rpc
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +32,6 @@ class ModelManager:
             self._local.model_refs = weakref.WeakValueDictionary()  # Track model references
             self._local.pid = os.getpid()
             self._local.initialized = True
-            self._local.parameter_server = None
             logger.info(f"ModelManager initialized for process {self._local.pid}")
 
     def _verify_model_device(self, model: torch.nn.Module, device: torch.device) -> bool:
@@ -123,24 +120,6 @@ class ModelManager:
             logger.error(f"Error optimizing model: {str(e)}")
             raise
 
-    def _setup_parameter_server(self, config: Dict[str, Any]) -> None:
-        """Setup parameter server for model parallelism."""
-        try:
-            if config.get('training', {}).get('parameter_server', False):
-                logger.info("Setting up parameter server")
-                # Initialize RPC framework
-                if not rpc.is_initialized():
-                    rpc.init_rpc(
-                        name=f"worker_{self._local.pid}",
-                        rank=0,
-                        world_size=1
-                    )
-                # Create parameter server
-                self._local.parameter_server = torch.nn.parallel.ParameterServer()
-        except Exception as e:
-            logger.error(f"Error setting up parameter server: {str(e)}")
-            raise
-
     def get_worker_model(
         self,
         worker_id: int,
@@ -158,7 +137,6 @@ class ModelManager:
             self._local.model_refs = weakref.WeakValueDictionary()
             self._local.pid = current_pid
             self._local.initialized = True
-            self._local.parameter_server = None
 
         logger.debug(f"get_worker_model called from process {current_pid}")
         
@@ -244,9 +222,6 @@ class ModelManager:
                 # Apply optimizations
                 model = self._optimize_model(model, config)
                 
-                # Setup parameter server if needed
-                self._setup_parameter_server(config)
-                
                 # Register model with cuda_manager for protection
                 cuda_manager.register_model(model)
                 
@@ -305,13 +280,6 @@ class ModelManager:
                     finally:
                         del self._local.process_models[key]
                         self._local.model_refs.pop(key, None)
-            
-            # Clean up parameter server
-            if self._local.parameter_server is not None:
-                del self._local.parameter_server
-                self._local.parameter_server = None
-                if rpc.is_initialized():
-                    rpc.shutdown()
             
             # Force garbage collection
             gc.collect()

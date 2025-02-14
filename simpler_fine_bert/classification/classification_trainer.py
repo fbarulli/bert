@@ -32,9 +32,7 @@ class ClassificationTrainer(BaseTrainer):
         wandb_manager: Optional[WandbManager] = None,
         job_id: Optional[int] = None,
         train_dataset: Optional[Dataset] = None,
-        val_dataset: Optional[Dataset] = None,
-        world_size: int = 1,
-        rank: int = 0
+        val_dataset: Optional[Dataset] = None
     ) -> None:
         """Initialize classification trainer.
         
@@ -50,8 +48,8 @@ class ClassificationTrainer(BaseTrainer):
             trial: Optuna trial object if is_trial is True
             wandb_manager: Optional Weights & Biases manager
             job_id: Optional job identifier
-            train_dataset: Optional training dataset for DDP
-            val_dataset: Optional validation dataset for DDP
+            train_dataset: Optional training dataset
+            val_dataset: Optional validation dataset
         """
         super().__init__(
             model=model,
@@ -65,9 +63,7 @@ class ClassificationTrainer(BaseTrainer):
             wandb_manager=wandb_manager,
             job_id=job_id,
             train_dataset=train_dataset,
-            val_dataset=val_dataset,
-            world_size=world_size,
-            rank=rank
+            val_dataset=val_dataset
         )
         self._optimizer = optimizer
         self.best_accuracy = 0.0

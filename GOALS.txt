@@ -1,29 +1,5 @@
 This project uses multiclassification (original csv has column name rating from 1-5  but needs to be changed into label from 0-4 by subtracting 1 and renamed to label).
 
-This project is to be done in 4 stages:
-
-
-MLM pipeline consisits of 2 steps:
-Step 1
-1- run optuna trials until completion
-2-return best model and hyperparameters
-
-Step 2
-1- train the model with the best hyperparameters with full dataset
-2-validate model and return training curve for MLM accuracy
-
-
-
-
-finetuning has 2 stages
-
-Stage 1
-1- run optuna trials until completion
-2- return best model with hyperparameters
-
-Stage 2
-1- Train best model on full dataset (except validation set)
-2 return predictions on validation set and return training curve for classification accuracy on validation set
 
 When an error is presented, make sure to fully understand full project structure and how the proposed change will affect other parts of the code.
 Always use type hinting, logging and tracebacks.
@@ -35,6 +11,8 @@ Do not make any additional changes other than requested. Ask permission before m
 
 
 
+do not use .get() for robustness, yaml is only source.
+we will only have access to 1 gpu, this will not change.
 
 
 

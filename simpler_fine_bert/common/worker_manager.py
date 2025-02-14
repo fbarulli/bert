@@ -114,10 +114,11 @@ class WorkerManager:
                 self.start_workers(group)
 
     def start_workers(self, group: str = "default", check_resources: bool = True) -> None:
-        """Start worker processes with distributed training support.
+        """Start worker processes for parallel optimization.
         
         Args:
             group: Worker group name for organization (default: "default")
+            check_resources: Whether to check system resources before starting workers (default: True)
         """
         # Check system resources
         if check_resources:

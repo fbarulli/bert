@@ -1,4 +1,4 @@
-"""Worker process utilities for distributed training."""
+"""Worker process utilities for parallel training."""
 
 import logging
 import os

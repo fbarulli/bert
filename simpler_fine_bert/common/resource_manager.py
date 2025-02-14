@@ -43,9 +43,7 @@ class ProcessResourceManager:
     def create_datasets(
         self,
         config: Dict[str, Any],
-        stage: str = 'embedding',  # 'embedding' or 'classification'
-        world_size: int = 1,
-        rank: int = 0
+        stage: str = 'embedding'  # 'embedding' or 'classification'
     ) -> Tuple[Dataset, Dataset]:
         """Create train and validation datasets."""
         train_dataset = resource_factory.create_resource(
@@ -66,26 +64,20 @@ class ProcessResourceManager:
         self,
         config: Dict[str, Any],
         train_dataset: Dataset,
-        val_dataset: Dataset,
-        world_size: int = 1,
-        rank: int = 0
+        val_dataset: Dataset
     ) -> Tuple[DataLoader, DataLoader]:
         """Create train and validation dataloaders."""
         train_loader = resource_factory.create_resource(
             'dataloader',
             config,
             dataset=train_dataset,
-            split='train',
-            world_size=world_size,
-            rank=rank
+            split='train'
         )
         val_loader = resource_factory.create_resource(
             'dataloader',
             config,
             dataset=val_dataset,
-            split='val',
-            world_size=world_size,
-            rank=rank
+            split='val'
         )
         return train_loader, val_loader
 

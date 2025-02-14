@@ -16,7 +16,6 @@ def get_data_manager():
     """Get data manager instance at runtime to avoid circular imports."""
     from simpler_fine_bert.common.data_manager import data_manager
     return data_manager
-
 def get_embedding_model():
     """Get EmbeddingBert class at runtime to avoid circular imports."""
     from simpler_fine_bert.embedding.model import EmbeddingBert
@@ -63,12 +62,10 @@ class ResourceFactory:
             'dataloader': ResourceType(
                 name='dataloader',
                 description='DataLoader resources',
-                factory=lambda config, dataset=None, split='train', world_size=1, rank=0: get_data_manager().create_dataloader(
+                factory=lambda config, dataset=None, split='train': get_data_manager().create_dataloader(
                     config=config,
                     dataset=dataset,
-                    split=split,
-                    world_size=world_size,
-                    rank=rank
+                    split=split
                 ),
                 validator=lambda x: isinstance(x, DataLoader)
             ),

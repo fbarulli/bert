@@ -129,15 +129,16 @@ def run_classification_optimization(embedding_model_path: str, config_path: str,
                 model=local_vars['model'],
                 train_loader=local_vars['train_loader'],
                 val_loader=local_vars['val_loader'],
+                config=trial_config,
+                metrics_dir=output_dir / 'metrics',
                 optimizer=local_vars['optimizer'],
                 scheduler=local_vars['scheduler'],
-                device=device,
-                config=trial_config,
-                checkpoints_dir=output_dir / 'classification_stage',
                 is_trial=True,
                 trial=trial,
                 wandb_manager=study_manager.wandb_manager,
-                job_id=trial.number
+                job_id=trial.number,
+                train_dataset=train_dataset,
+                val_dataset=val_dataset
             )
 
             try:
@@ -247,15 +248,16 @@ def train_final_model(embedding_model_path: str, best_params: Dict[str, Any], co
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
+        config=config,
+        metrics_dir=output_dir / 'metrics',
         optimizer=optimizer,
         scheduler=scheduler,
-        device=device,
-        config=config,
-        checkpoints_dir=output_dir / 'classification_stage',
         is_trial=False,
         trial=None,
         wandb_manager=None,
-        job_id=0  # Final training uses job_id 0
+        job_id=0,  # Final training uses job_id 0
+        train_dataset=train_dataset,
+        val_dataset=val_dataset
     )
 
     try:
