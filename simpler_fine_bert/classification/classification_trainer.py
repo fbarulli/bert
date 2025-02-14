@@ -1,66 +1,51 @@
 from __future__ import annotations
 
 import logging
+from typing import Dict, Any, Optional
 import torch
-import torch.nn as nn
-from typing import Dict, Tuple, Any, Optional, Union
-from pathlib import Path
-from torch.utils.data import DataLoader, Dataset
-from torch.optim import Optimizer
-import optuna
+from torch.utils.data import DataLoader
+from simpler_fine_bert.common.managers import get_resource_manager, get_wandb_manager
 
-from simpler_fine_bert.common.base_trainer import BaseTrainer
-from simpler_fine_bert.common.managers import get_metrics_manager
+# Get manager instances
+resource_manager = get_resource_manager()
 
-# Get manager instance
-metrics_manager = get_metrics_manager()
-from simpler_fine_bert.common.wandb_manager import WandbManager
+# Optional wandb support
+try:
+    WandbManager = get_wandb_manager().__class__
+except ImportError:
+    WandbManager = None
 
 logger = logging.getLogger(__name__)
 
-class ClassificationTrainer(BaseTrainer):
-    """BERT trainer with classification-specific functionality."""
+# Import BaseTrainer at runtime to avoid circular import
+def get_base_trainer():
+    from simpler_fine_bert.common.base_trainer import BaseTrainer
+    return BaseTrainer
+
+class ClassificationTrainer(get_base_trainer()):
+    """Trainer for fine-tuning BERT for classification tasks."""
     
     def __init__(
         self,
-        model: nn.Module,
-        train_loader: DataLoader,
-        val_loader: DataLoader,
+        model: torch.nn.Module,
+        train_loader: Optional[DataLoader],
+        val_loader: Optional[DataLoader],
         config: Dict[str, Any],
-        metrics_dir: Path,
-        optimizer: Optional[Optimizer] = None,
-        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+        metrics_dir: Optional[str] = None,
         is_trial: bool = False,
-        trial: Optional[optuna.Trial] = None,
+        trial: Optional['optuna.Trial'] = None,
         wandb_manager: Optional[WandbManager] = None,
         job_id: Optional[int] = None,
-        train_dataset: Optional[Dataset] = None,
-        val_dataset: Optional[Dataset] = None
+        train_dataset: Optional['Dataset'] = None,
+        val_dataset: Optional['Dataset'] = None
     ) -> None:
-        """Initialize classification trainer.
-        
-        Args:
-            model: The neural network model
-            train_loader: DataLoader for training data
-            val_loader: DataLoader for validation data
-            config: Training configuration
-            metrics_dir: Directory to save metrics
-            optimizer: Optional pre-configured optimizer
-            scheduler: Optional learning rate scheduler
-            is_trial: Whether this is an Optuna trial
-            trial: Optuna trial object if is_trial is True
-            wandb_manager: Optional Weights & Biases manager
-            job_id: Optional job identifier
-            train_dataset: Optional training dataset
-            val_dataset: Optional validation dataset
-        """
+        """Initialize classification trainer."""
         super().__init__(
             model=model,
             train_loader=train_loader,
             val_loader=val_loader,
             config=config,
             metrics_dir=metrics_dir,
-            scheduler=scheduler,
             is_trial=is_trial,
             trial=trial,
             wandb_manager=wandb_manager,
@@ -68,30 +53,40 @@ class ClassificationTrainer(BaseTrainer):
             train_dataset=train_dataset,
             val_dataset=val_dataset
         )
-        self._optimizer = optimizer
         self.best_accuracy = 0.0
-    
-    def create_optimizer(self) -> Optimizer:
-        """Create or return optimizer."""
-        if self._optimizer is not None:
-            return self._optimizer
-        return super().create_optimizer()
-    
-    def compute_task_metrics(
+        self._optimizer = self.create_optimizer()
+
+    def compute_batch_metrics(
         self,
         outputs: Dict[str, torch.Tensor],
-        batch: Dict[str, torch.Tensor]
+        batch: Dict[str, torch.Tensor],
+        device_batch: Dict[str, torch.Tensor]
     ) -> Dict[str, float]:
-        """Compute classification-specific metrics.
-        
-        Args:
-            outputs: Model outputs (on device)
-            batch: Input batch (already moved to device)
+        """Compute classification-specific metrics."""
+        try:
+            # Get classification metrics from resource manager
+            metrics = resource_manager.compute_classification_metrics(outputs, batch)
             
-        Returns:
-            Dictionary of metric names to values
-        """
-        metrics = metrics_manager.compute_classification_metrics(outputs, batch)
-        if metrics.get('accuracy', 0.0) > self.best_accuracy:
-            self.best_accuracy = metrics['accuracy']
-        return metrics
+            # Update best accuracy if needed
+            if metrics['accuracy'] > self.best_accuracy:
+                self.best_accuracy = metrics['accuracy']
+            
+            return metrics
+            
+        except Exception as e:
+            logger.error(f"Error computing classification metrics: {str(e)}")
+            logger.error(f"Output type: {type(outputs)}")
+            logger.error(f"Output keys: {outputs.keys() if isinstance(outputs, dict) else 'Not a dict'}")
+            logger.error(f"Batch type: {type(batch)}")
+            logger.error(f"Batch keys: {batch.keys() if isinstance(batch, dict) else 'Not a dict'}")
+            raise
+
+    def get_current_lr(self) -> float:
+        """Get current learning rate from optimizer."""
+        return self._optimizer.param_groups[0]['lr'] if self._optimizer else 0.0
+
+    def cleanup_memory(self, aggressive: bool = False) -> None:
+        """Clean up classification-specific memory resources."""
+        super().cleanup_memory(aggressive)
+        if aggressive:
+            self.best_accuracy = 0.0

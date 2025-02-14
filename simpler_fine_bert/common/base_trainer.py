@@ -40,7 +40,7 @@ class BaseTrainer:
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         is_trial: bool = False,
         trial: Optional['optuna.Trial'] = None,
-        wandb_manager: Optional['WandbManager'] = None,
+        wandb_manager: Optional['simpler_fine_bert.common.managers.wandb_manager.WandbManager'] = None,
         job_id: Optional[int] = None,
         train_dataset: Optional[Any] = None,
         val_dataset: Optional[Any] = None
@@ -51,8 +51,15 @@ class BaseTrainer:
             get_cuda_manager,
             get_batch_manager,
             get_amp_manager,
-            get_tokenizer_manager
+            get_tokenizer_manager,
+            get_wandb_manager
         )
+
+        # Optional wandb support
+        try:
+            wandb_manager_class = get_wandb_manager().__class__
+        except ImportError:
+            wandb_manager_class = None
         
         # Get manager instances
         cuda_manager = get_cuda_manager()

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 """Main entry point for training."""
 
+# Initialize TensorFlow and suppress warnings before any other imports
+from simpler_fine_bert.common.tensorflow_init import *
+
 # Process setup must happen before any other imports
 from simpler_fine_bert.common.process.multiprocessing_setup import setup_multiprocessing
 setup_multiprocessing()

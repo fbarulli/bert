@@ -9,6 +9,13 @@ from simpler_fine_bert.common.managers import get_metrics_manager
 # Get manager instance
 metrics_manager = get_metrics_manager()
 
+# Optional wandb support
+try:
+    from simpler_fine_bert.common.managers import get_wandb_manager
+    WandbManager = get_wandb_manager().__class__
+except ImportError:
+    WandbManager = None
+
 logger = logging.getLogger(__name__)
 
 # Import BaseTrainer at runtime to avoid circular import
@@ -28,7 +35,7 @@ class EmbeddingTrainer(get_base_trainer()):
         metrics_dir: Optional[str] = None,
         is_trial: bool = False,
         trial: Optional['optuna.Trial'] = None,
-        wandb_manager: Optional['simpler_fine_bert.common.managers.wandb_manager.WandbManager'] = None,
+        wandb_manager: Optional[WandbManager] = None,
         job_id: Optional[int] = None,
         train_dataset: Optional['Dataset'] = None,
         val_dataset: Optional['Dataset'] = None

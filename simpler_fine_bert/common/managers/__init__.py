@@ -55,8 +55,12 @@ def get_tokenizer_manager():
     return tokenizer_manager
 
 def get_worker_manager():
-    from simpler_fine_bert.common.managers.worker_manager import worker_manager
+    from simpler_fine_bert.common.worker_manager import worker_manager
     return worker_manager
+
+def get_wandb_manager():
+    from simpler_fine_bert.common.managers.wandb_manager import wandb_manager
+    return wandb_manager
 
 __all__ = [
     'get_amp_manager',
@@ -72,5 +76,6 @@ __all__ = [
     'get_storage_manager',
     'get_tensor_manager',
     'get_tokenizer_manager',
-    'get_worker_manager'
+    'get_worker_manager',
+    'get_wandb_manager'
 ]
