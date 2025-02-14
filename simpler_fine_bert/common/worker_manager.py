@@ -16,8 +16,14 @@ import torch
 
 from simpler_fine_bert.common.cuda_utils import cuda_manager
 from simpler_fine_bert.common.study.objective_factory import ObjectiveFactory
-from simpler_fine_bert.common.model_manager import model_manager
-from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+from simpler_fine_bert.common.managers import (
+    get_model_manager,
+    get_tokenizer_manager
+)
+
+# Get manager instances
+model_manager = get_model_manager()
+tokenizer_manager = get_tokenizer_manager()
 
 logger = logging.getLogger(__name__)
 

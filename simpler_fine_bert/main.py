@@ -58,10 +58,18 @@ def initialize_managers(config: Dict[str, Any]) -> None:
     """Initialize all managers with config."""
     try:
         # Import managers at runtime
-        from simpler_fine_bert.common.resource_manager import resource_manager
-        from simpler_fine_bert.common.parameter_manager import parameter_manager
-        from simpler_fine_bert.common.worker_manager import worker_manager
-        from simpler_fine_bert.common.storage_manager import storage_manager
+        from simpler_fine_bert.common.managers import (
+            get_resource_manager,
+            get_parameter_manager,
+            get_worker_manager,
+            get_storage_manager
+        )
+        
+        # Get manager instances
+        resource_manager = get_resource_manager()
+        parameter_manager = get_parameter_manager()
+        worker_manager = get_worker_manager()
+        storage_manager = get_storage_manager()
         from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
         
         # Initialize resource manager with config first

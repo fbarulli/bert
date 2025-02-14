@@ -4,7 +4,10 @@ import logging
 import torch
 from typing import Dict, Any, Optional
 from torch.utils.data import DataLoader
-from simpler_fine_bert.common.metrics_manager import metrics_manager
+from simpler_fine_bert.common.managers import get_metrics_manager
+
+# Get manager instance
+metrics_manager = get_metrics_manager()
 
 logger = logging.getLogger(__name__)
 

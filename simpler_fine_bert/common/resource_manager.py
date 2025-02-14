@@ -9,7 +9,10 @@ from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 
 from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
-from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.managers import get_cuda_manager
+
+# Get manager instance
+cuda_manager = get_cuda_manager()
 from simpler_fine_bert.common.resource import resource_factory
 
 logger = logging.getLogger(__name__)

@@ -44,10 +44,18 @@ class BaseTrainer:
     ):
         """Initialize trainer."""
         # Import managers at runtime
-        from simpler_fine_bert.common.cuda_manager import cuda_manager
-        from simpler_fine_bert.common.batch_manager import batch_manager
-        from simpler_fine_bert.common.amp_manager import amp_manager
-        from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+        from simpler_fine_bert.common.managers import (
+            get_cuda_manager,
+            get_batch_manager,
+            get_amp_manager,
+            get_tokenizer_manager
+        )
+        
+        # Get manager instances
+        cuda_manager = get_cuda_manager()
+        batch_manager = get_batch_manager()
+        amp_manager = get_amp_manager()
+        tokenizer_manager = get_tokenizer_manager()
         
         # Store basic attributes
         self.model = model

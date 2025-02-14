@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 def get_data_manager():
     """Get data manager instance at runtime to avoid circular imports."""
-    from simpler_fine_bert.common.data_manager import data_manager
-    return data_manager
+    from simpler_fine_bert.common.managers import get_data_manager
+    return get_data_manager()
 
 def get_embedding_model():
     """Get EmbeddingBert class at runtime to avoid circular imports."""

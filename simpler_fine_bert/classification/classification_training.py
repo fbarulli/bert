@@ -16,7 +16,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import optuna
 
-from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+from simpler_fine_bert.common.managers import get_tokenizer_manager
+
+# Get manager instance
+tokenizer_manager = get_tokenizer_manager()
 from simpler_fine_bert.classification.dataset import CSVDataset
 from simpler_fine_bert.common.optuna_manager import OptunaManager
 from simpler_fine_bert.common.utils import seed_everything as set_seed, create_optimizer, create_scheduler
@@ -24,8 +27,14 @@ from simpler_fine_bert.common.utils import seed_everything as set_seed, create_o
 from simpler_fine_bert.common.config_utils import load_config
 
 from simpler_fine_bert.common.cuda_utils import cuda_manager
-from simpler_fine_bert.common.data_manager import dataloader_manager
-from simpler_fine_bert.common.resource_manager import resource_manager
+from simpler_fine_bert.common.managers import (
+    get_dataloader_manager,
+    get_resource_manager
+)
+
+# Get manager instances
+dataloader_manager = get_dataloader_manager()
+resource_manager = get_resource_manager()
 from simpler_fine_bert.classification.classification_trainer import ClassificationTrainer
 
 def get_classification_model():

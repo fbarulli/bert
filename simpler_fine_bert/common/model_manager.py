@@ -5,7 +5,10 @@ from typing import Dict, Any, Optional
 from transformers import PreTrainedModel, BertConfig
 from transformers.utils import logging as transformers_logging
 from transformers.utils.hub import HFValidationError
-from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.managers import get_cuda_manager
+
+# Get manager instance
+cuda_manager = get_cuda_manager()
 import os
 import gc
 import weakref

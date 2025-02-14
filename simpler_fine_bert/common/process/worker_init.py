@@ -5,8 +5,14 @@ import logging
 import os
 from typing import Optional, Callable
 
-from simpler_fine_bert.common.cuda_manager import cuda_manager
-from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+from simpler_fine_bert.common.managers import (
+    get_cuda_manager,
+    get_tokenizer_manager
+)
+
+# Get manager instances
+cuda_manager = get_cuda_manager()
+tokenizer_manager = get_tokenizer_manager()
 from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
 
 logger = logging.getLogger(__name__)

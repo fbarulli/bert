@@ -5,9 +5,16 @@ import torch
 import torch.nn as nn
 from transformers import BertPreTrainedModel, BertModel, BertConfig
 from typing import Dict, Any, Optional, Tuple, Union
-from simpler_fine_bert.common.cuda_manager import cuda_manager
-from simpler_fine_bert.common.batch_manager import batch_manager
-from simpler_fine_bert.common.tensor_manager import tensor_manager
+from simpler_fine_bert.common.managers import (
+    get_cuda_manager,
+    get_batch_manager,
+    get_tensor_manager
+)
+
+# Get manager instances
+cuda_manager = get_cuda_manager()
+batch_manager = get_batch_manager()
+tensor_manager = get_tensor_manager()
 
 logger = logging.getLogger(__name__)
 

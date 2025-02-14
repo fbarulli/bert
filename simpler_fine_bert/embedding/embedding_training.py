@@ -9,7 +9,10 @@ from typing import Dict, Any, Optional, Tuple
 from transformers import BertConfig
 
 from simpler_fine_bert.embedding.embedding_trainer import EmbeddingTrainer
-from simpler_fine_bert.common.resource_manager import resource_manager
+from simpler_fine_bert.common.managers import get_resource_manager
+
+# Get manager instance
+resource_manager = get_resource_manager()
 from simpler_fine_bert.common.wandb_manager import WandbManager
 from simpler_fine_bert.common.utils import measure_memory, clear_memory
 from simpler_fine_bert.common.resource import resource_factory

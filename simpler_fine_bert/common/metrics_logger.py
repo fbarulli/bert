@@ -10,7 +10,10 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 
 from simpler_fine_bert.common.wandb_manager import WandbManager
-from simpler_fine_bert.common.metrics_manager import metrics_manager
+from simpler_fine_bert.common.managers import get_metrics_manager
+
+# Get manager instance
+metrics_manager = get_metrics_manager()
 
 logger = logging.getLogger(__name__)
 

@@ -83,8 +83,8 @@ class ObjectiveFactory:
             )
 
             # Get trial configuration from parameter manager
-            from simpler_fine_bert.common.parameter_manager import ParameterManager
-            param_manager = ParameterManager(self.config)
+            from simpler_fine_bert.common.managers import get_parameter_manager
+            param_manager = get_parameter_manager()
             trial_config = param_manager.get_trial_config(trial)
 
             # Create datasets and loaders through resource manager
