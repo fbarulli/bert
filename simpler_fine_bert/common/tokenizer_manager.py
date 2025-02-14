@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 from transformers import PreTrainedTokenizerFast, AutoTokenizer
 from transformers.utils import logging as transformers_logging
 
-from simpler_fine_bert.base_manager import BaseManager
+from simpler_fine_bert.common.base_manager import BaseManager
 
 logger = logging.getLogger(__name__)
 

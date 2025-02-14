@@ -5,7 +5,7 @@ import traceback
 from typing import Optional
 from contextlib import contextmanager
 
-from simpler_fine_bert.base_manager import BaseManager
+from simpler_fine_bert.common.base_manager import BaseManager
 from simpler_fine_bert.common.cuda_manager import cuda_manager
 
 logger = logging.getLogger(__name__)

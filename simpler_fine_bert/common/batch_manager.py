@@ -4,8 +4,8 @@ import logging
 import traceback
 from typing import Optional, Dict
 
-from simpler_fine_bert.base_manager import BaseManager
-from simpler_fine_bert.tensor_manager import tensor_manager
+from simpler_fine_bert.common.base_manager import BaseManager
+from simpler_fine_bert.common.tensor_manager import tensor_manager
 
 logger = logging.getLogger(__name__)
 
