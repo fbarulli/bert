@@ -146,3 +146,8 @@ class ParameterManager:
         logger.info("\nEmbedding-specific:")
         logger.info(f"- embedding_mask_probability: {config['data']['embedding_mask_probability']}")
         logger.info(f"- max_span_length: {config['data']['max_span_length']}")
+
+# Create singleton instance with empty config (will be initialized later)
+parameter_manager = ParameterManager({})
+
+__all__ = ['ParameterManager', 'parameter_manager']

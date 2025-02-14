@@ -3,7 +3,7 @@
 # Top-level sections
 training:
   seed: 42
-  num_epochs: 3
+  num_epochs: 1
   batch_size: 16 # DO NOT CHANGE
   debug_logging: true  # Enable debug logs for masking and other operations
   save_every_n_epochs: 1
@@ -82,6 +82,7 @@ data:
 model:
   name: "bert-base-uncased"
   type: "pretrained"
+  stage: "embedding"
 
 hyperparameters:
   learning_rate:

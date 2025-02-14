@@ -4,7 +4,7 @@ import logging
 import torch
 import torch.nn as nn
 from typing import Dict, Any, Optional, List
-from simpler_fine_bert.metrics_manager import metrics_manager
+from simpler_fine_bert.common.metrics_manager import metrics_manager
 
 logger = logging.getLogger(__name__)
 

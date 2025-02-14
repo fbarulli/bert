@@ -8,3 +8,4 @@ matplotlib
 seaborn
 tqdm
 coloredlogs
+setproctitle  # Optional: Used for setting process names in distributed training

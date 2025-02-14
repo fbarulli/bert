@@ -27,6 +27,7 @@ class TokenizerManager(BaseManager):
         self,
         worker_id: int,
         model_name: str,
+        model_type: str = 'embedding',
         config: Optional[Dict[str, Any]] = None
     ) -> PreTrainedTokenizerFast:
         """Create tokenizer for worker using process-local resources."""
@@ -118,3 +119,5 @@ class TokenizerManager(BaseManager):
             logger.error(f"Error during worker cleanup: {str(e)}")
 
 tokenizer_manager = TokenizerManager()
+
+__all__ = ['TokenizerManager', 'tokenizer_manager']

@@ -9,6 +9,12 @@ from simpler_fine_bert.common.utils import setup_logging, seed_everything
 from simpler_fine_bert.common.config_utils import load_config
 from simpler_fine_bert.embedding import train_embeddings, validate_embeddings
 from simpler_fine_bert.common.resource import resource_factory
+from simpler_fine_bert.common.parameter_manager import parameter_manager
+from simpler_fine_bert.common.resource_manager import resource_manager
+from simpler_fine_bert.common.worker_manager import worker_manager
+from simpler_fine_bert.common.storage_manager import storage_manager
+from simpler_fine_bert.common.metrics_manager import metrics_manager
+from simpler_fine_bert.common.cuda_utils import cuda_manager
 from simpler_fine_bert.classification import (
     run_classification_optimization,
     train_final_model
@@ -38,7 +44,7 @@ def train_model(config: Dict[str, Any], output_dir: Optional[str] = None) -> Non
             run_classification_optimization(
                 embedding_model_path=config['model']['embedding_model_path'],
                 config_path=config['model']['config_path'],
-                study_name=config.get('study_name')
+                study_name=config
             )
             
         else:
@@ -56,6 +62,14 @@ def main():
         
         config = load_config("config_embedding.yaml")
         logger.info("Configuration loaded successfully")
+        
+        # Initialize managers with loaded config
+        parameter_manager.base_config = config
+        resource_manager.config = config
+        worker_manager.n_jobs = config['training']['n_jobs']
+        storage_manager.storage_dir = Path(config['output']['dir']) / 'storage'
+        metrics_manager.initialize(cuda_manager.get_device())
+        logger.info("All managers initialized with config")
         
         logger.info(f"\n=== Creating {config['model']['stage'].title()} Resources ===")
         try:

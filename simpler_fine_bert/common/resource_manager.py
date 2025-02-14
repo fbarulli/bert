@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path
 
-from simpler_fine_bert.resource_initializer import ResourceInitializer
+from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
 from simpler_fine_bert.common.cuda_manager import cuda_manager
 
 logger = logging.getLogger(__name__)
@@ -108,3 +108,8 @@ class ProcessResourceManager:
             logger.error(f"Error during resource cleanup: {str(e)}")
             logger.error(traceback.format_exc())
             raise
+
+# Create singleton instance with empty config (will be initialized later)
+resource_manager = ProcessResourceManager({})
+
+__all__ = ['ProcessResourceManager', 'ResourceConfig', 'resource_manager', 'RESOURCE_TYPES']

@@ -44,3 +44,5 @@ class BatchManager(BaseManager):
 
 # Global instance
 batch_manager = BatchManager()
+
+__all__ = ['BatchManager', 'batch_manager']

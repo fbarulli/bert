@@ -108,3 +108,5 @@ class AMPManager(BaseManager):
 
 # Global instance
 amp_manager = AMPManager()
+
+__all__ = ['AMPManager', 'amp_manager']

@@ -17,6 +17,10 @@ from simpler_fine_bert.common.process.process_init import (
     initialize_process,
     cleanup_process_resources
 )
+from simpler_fine_bert.common.process.process_utils import (
+    set_process_name,
+    set_process_priority
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +42,10 @@ def run_worker(
         in_queue: Queue for receiving trial data
         out_queue: Queue for sending results
     """
-    # Initialize process
+    # Initialize process and set name/priority
     current_pid, parent_pid = initialize_process()
+    set_process_name(f"optuna-worker-{worker_id}")
+    set_process_priority(0)  # Normal priority
     
     logger.info(f"\n=== Worker {worker_id} Starting ===")
     logger.info(f"Worker Process Details:")

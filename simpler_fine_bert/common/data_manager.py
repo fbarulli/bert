@@ -51,7 +51,7 @@ class DataManager(BaseManager):
             tokenizer = get_tokenizer_manager().get_worker_tokenizer(
                 worker_id=worker_id,
                 model_name=config['model']['name'],
-                model_type=config['model'].get('type', 'embedding')
+                model_type=config['model']
             )
             logger.debug(f"Created tokenizer for worker {worker_id}")
             return tokenizer
@@ -100,14 +100,9 @@ class DataManager(BaseManager):
                 data_path=Path(config['data']['csv_path']),
                 tokenizer=tokenizer,
                 split=split,
-                train_ratio=config['data'].get('train_ratio', 0.9),
+                train_ratio=config['data'],
                 max_length=config['data']['max_length']
             )
-
-            # Move tensors to shared memory
-            for key in dataset.data:
-                if isinstance(dataset.data[key], torch.Tensor):
-                    dataset.data[key] = dataset.data[key].share_memory_()
             
             logger.debug(f"Created {split} dataset with {len(dataset)} examples")
             return dataset

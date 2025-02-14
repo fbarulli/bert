@@ -11,10 +11,10 @@ from typing import Dict, Any, Optional, Tuple
 import optuna
 from optuna.trial import Trial
 
-from simpler_fine_bert.cuda_utils import cuda_manager
-from simpler_fine_bert.objective_factory import ObjectiveFactory
-from simpler_fine_bert.model_manager import model_manager
-from simpler_fine_bert.tokenizer_manager import tokenizer_manager
+from simpler_fine_bert.common.cuda_utils import cuda_manager
+from simpler_fine_bert.common.study.objective_factory import ObjectiveFactory
+from simpler_fine_bert.common.model_manager import model_manager
+from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
 
 logger = logging.getLogger(__name__)
 
@@ -153,3 +153,8 @@ class WorkerManager:
     def get_result(self) -> Tuple[int, Optional[float], Optional[str]]:
         """Get result from a completed trial."""
         return self.result_queue.get()
+
+# Create singleton instance with default values (will be initialized later)
+worker_manager = WorkerManager(n_jobs=1, study_name="", storage_url="")
+
+__all__ = ['WorkerManager', 'worker_manager']

@@ -133,3 +133,5 @@ class TensorManager(BaseManager):
 
 # Global instance
 tensor_manager = TensorManager()
+
+__all__ = ['TensorManager', 'tensor_manager']

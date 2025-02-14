@@ -164,3 +164,8 @@ class StorageManager:
         except Exception as e:
             logger.error(f"Error cleaning up storage: {e}")
             raise
+
+# Create singleton instance with default storage path (will be updated later)
+storage_manager = StorageManager(Path("storage"))
+
+__all__ = ['StorageManager', 'storage_manager']

@@ -203,3 +203,5 @@ class MetricsManager:
             return float('inf')
 
 metrics_manager = MetricsManager()
+
+__all__ = ['MetricsManager', 'metrics_manager']

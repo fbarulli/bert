@@ -1,13 +1,13 @@
 from simpler_fine_bert.common.scheduler.dynamic_scheduler import (
-    DynamicScheduler,
+    WarmupCosineScheduler,
+    WarmupLinearScheduler,
     create_scheduler,
-    get_scheduler_config,
-    update_scheduler_state
+    get_scheduler_config
 )
 
 __all__ = [
-    'DynamicScheduler',
+    'WarmupCosineScheduler',
+    'WarmupLinearScheduler',
     'create_scheduler',
-    'get_scheduler_config',
-    'update_scheduler_state'
+    'get_scheduler_config'
 ]
