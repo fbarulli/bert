@@ -6,8 +6,8 @@ from typing import Optional, Union, List, Tuple, Dict, Any
 import numpy as np
 
 from simpler_fine_bert.common.base_manager import BaseManager
+from simpler_fine_bert.common import get_cuda_manager
 from simpler_fine_bert.common.cuda_utils import (
-    get_cuda_manager,
     is_cuda_available,
     clear_cuda_memory
 )

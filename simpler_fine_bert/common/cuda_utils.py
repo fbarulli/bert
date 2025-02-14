@@ -61,18 +61,6 @@ def reset_cuda_stats() -> None:
         if hasattr(torch.cuda, 'reset_accumulated_memory_stats'):
             torch.cuda.reset_accumulated_memory_stats()
 
-def initialize_process(config: Optional[Dict[str, Any]] = None) -> None:
-    """Initialize process resources."""
-    # Import initialization utilities at runtime
-    from simpler_fine_bert.common.process.initialization import initialize_process as _init
-    return _init(config)
-
-def cleanup_process() -> None:
-    """Clean up process resources."""
-    # Import initialization utilities at runtime
-    from simpler_fine_bert.common.process.initialization import cleanup_process as _cleanup
-    return _cleanup()
-
 __all__ = [
     'is_cuda_available',
     'get_cuda_device',
@@ -80,7 +68,5 @@ __all__ = [
     'get_cuda_device_properties',
     'clear_cuda_memory',
     'get_cuda_memory_stats',
-    'reset_cuda_stats',
-    'initialize_process',
-    'cleanup_process'
+    'reset_cuda_stats'
 ]
