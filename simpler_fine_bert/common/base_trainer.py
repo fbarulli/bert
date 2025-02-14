@@ -21,10 +21,10 @@ from torch.optim import Optimizer
 import matplotlib.pyplot as plt
 from transformers import get_linear_schedule_with_warmup
 
-from simpler_fine_bert.cuda_utils import cuda_manager, batch_manager
-from simpler_fine_bert.tokenizer_manager import tokenizer_manager
-from simpler_fine_bert.metrics_logger import MetricsLogger
-from simpler_fine_bert.storage_manager import StorageManager
+from simpler_fine_bert.common.cuda_utils import cuda_manager, batch_manager
+from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+from simpler_fine_bert.common.metrics_logger import MetricsLogger
+from simpler_fine_bert.common.storage_manager import StorageManager
 
 logger = logging.getLogger(__name__)
 
