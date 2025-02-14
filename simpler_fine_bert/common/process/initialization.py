@@ -22,15 +22,20 @@ def initialize_worker(worker_id: int) -> None:
         
         # Import managers at runtime to avoid circular imports
         from simpler_fine_bert.common.cuda_manager import cuda_manager
+        from simpler_fine_bert.common.amp_manager import amp_manager
         from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
         from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
         
         # Initialize CUDA first
-        cuda_manager.initialize()
+        cuda_manager.ensure_initialized()
         logger.debug(f"CUDA initialized for worker {worker_id}")
         
+        # Initialize AMP right after CUDA
+        amp_manager.ensure_initialized()
+        logger.debug(f"AMP initialized for worker {worker_id}")
+        
         # Initialize tokenizer
-        tokenizer_manager.initialize()
+        tokenizer_manager.ensure_initialized()
         logger.debug(f"Tokenizer initialized for worker {worker_id}")
         
         # Initialize remaining resources
@@ -67,11 +72,20 @@ def initialize_process() -> Tuple[int, int]:
             except RuntimeError as e:
                 logger.warning(f"Could not set spawn method: {e}")
         
-        # Import ResourceInitializer at runtime to avoid circular imports
-        from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
+        # Import and initialize CUDA first
+        from simpler_fine_bert.common.cuda_manager import cuda_manager
+        cuda_manager.ensure_initialized()
+        logger.debug(f"CUDA initialized for process {current_pid}")
         
-        # Initialize process resources
+        # Import and initialize AMP right after CUDA
+        from simpler_fine_bert.common.amp_manager import amp_manager
+        amp_manager.ensure_initialized()
+        logger.debug(f"AMP initialized for process {current_pid}")
+        
+        # Initialize remaining resources
+        from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
         ResourceInitializer.initialize_process()
+        logger.debug(f"Resources initialized for process {current_pid}")
         
         return current_pid, parent_pid
         

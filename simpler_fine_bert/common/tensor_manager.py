@@ -6,7 +6,11 @@ from typing import Optional, Union, List, Tuple, Dict, Any
 import numpy as np
 
 from simpler_fine_bert.common.base_manager import BaseManager
-from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.cuda_utils import (
+    get_cuda_manager,
+    is_cuda_available,
+    clear_cuda_memory
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,12 +19,24 @@ class TensorManager(BaseManager):
     
     def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes."""
-        # Call parent's initialization first
-        super()._initialize_process_local(config)
-        
-        # Initialize cuda_manager first since we depend on it
-        cuda_manager.ensure_initialized()
-        self._local.device = None
+        try:
+            # Call parent's initialization first
+            super()._initialize_process_local(config)
+            
+            # Get cuda_manager at runtime
+            cuda_manager = get_cuda_manager()
+            
+            # Verify CUDA is initialized
+            if not cuda_manager.is_initialized():
+                raise RuntimeError("CUDA must be initialized before TensorManager")
+                
+            self._local.device = None
+            logger.info(f"TensorManager initialized for process {self._local.pid}")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize TensorManager: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
             
     def create_tensor(
         self,
@@ -55,6 +71,9 @@ class TensorManager(BaseManager):
         """Get current device."""
         self.ensure_initialized()
         if self._local.device is None:
+            # Get cuda_manager at runtime
+            cuda_manager = get_cuda_manager()
+            
             if cuda_manager.is_available():
                 self._local.device = torch.device('cuda')
             else:
@@ -80,8 +99,11 @@ class TensorManager(BaseManager):
                 data = data.to(dtype=dtype)
                 
             # Pin memory if requested and CUDA is available
-            if pin_memory and cuda_manager.is_available():
-                data = data.pin_memory()
+            if pin_memory:
+                # Get cuda_manager at runtime
+                cuda_manager = get_cuda_manager()
+                if cuda_manager.is_available():
+                    data = data.pin_memory()
                 
             return data
             
@@ -128,10 +150,8 @@ class TensorManager(BaseManager):
     def clear_memory(self) -> None:
         """Clear CUDA memory cache."""
         self.ensure_initialized()
-        if cuda_manager.is_available():
-            torch.cuda.empty_cache()
-            import gc
-            gc.collect()
+        if is_cuda_available():
+            clear_cuda_memory()
 
 # Global instance
 tensor_manager = TensorManager()

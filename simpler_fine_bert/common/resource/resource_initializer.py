@@ -1,5 +1,6 @@
-from __future__ import annotations
+"""Resource initialization with dependency tracking."""
 
+from __future__ import annotations
 import logging
 import os
 import torch
@@ -8,20 +9,18 @@ from typing import Dict, Any, Optional, List, Type, Set
 from dataclasses import dataclass, field
 
 from simpler_fine_bert.common.base_manager import BaseManager
-from simpler_fine_bert.common.cuda_manager import cuda_manager
-from simpler_fine_bert.common.tensor_manager import tensor_manager
-from simpler_fine_bert.common.batch_manager import batch_manager
-from simpler_fine_bert.common.metrics_manager import metrics_manager
-from simpler_fine_bert.common.amp_manager import amp_manager
-from simpler_fine_bert.common.dataloader_manager import dataloader_manager
-from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+from simpler_fine_bert.common.cuda_utils import (
+    is_cuda_available,
+    clear_cuda_memory,
+    reset_cuda_stats
+)
 
 logger = logging.getLogger(__name__)
 
 @dataclass
 class ManagerDependency:
     """Represents a manager and its dependencies."""
-    manager: BaseManager
+    manager_cls: Type[BaseManager]
     depends_on: List[Type[BaseManager]] = field(default_factory=list)
     description: str = ""
     initialized: bool = False
@@ -29,48 +28,60 @@ class ManagerDependency:
 class ResourceInitializer:
     """Centralizes process-local resource initialization with dependency tracking."""
     
-    # Define initialization order and dependencies
-    _manager_dependencies = {
-        cuda_manager.__class__: ManagerDependency(
-            manager=cuda_manager,
-            description="CUDA system initialization"
-        ),
-        amp_manager.__class__: ManagerDependency(
-            manager=amp_manager,
-            depends_on=[cuda_manager.__class__],
-            description="Automatic mixed precision"
-        ),
-        tensor_manager.__class__: ManagerDependency(
-            manager=tensor_manager,
-            depends_on=[cuda_manager.__class__, amp_manager.__class__],
-            description="Tensor operations"
-        ),
-        batch_manager.__class__: ManagerDependency(
-            manager=batch_manager,
-            depends_on=[tensor_manager.__class__],
-            description="Batch processing"
-        ),
-        metrics_manager.__class__: ManagerDependency(
-            manager=metrics_manager,
-            depends_on=[tensor_manager.__class__],
-            description="Metrics tracking"
-        ),
-        tokenizer_manager.__class__: ManagerDependency(
-            manager=tokenizer_manager,
-            description="Tokenizer management"
-        ),
-        dataloader_manager.__class__: ManagerDependency(
-            manager=dataloader_manager,
-            depends_on=[cuda_manager.__class__, tensor_manager.__class__, tokenizer_manager.__class__],
-            description="Data loading"
-        )
-    }
-
     # Class-level storage for process config
     _config: Optional[Dict[str, Any]] = None
+    
+    @classmethod
+    def _get_manager_dependencies(cls) -> Dict[Type[BaseManager], ManagerDependency]:
+        """Get manager dependencies lazily to avoid circular imports."""
+        # Import managers at runtime to avoid circular imports
+        from simpler_fine_bert.common.cuda_manager import cuda_manager
+        from simpler_fine_bert.common.tensor_manager import tensor_manager
+        from simpler_fine_bert.common.batch_manager import batch_manager
+        from simpler_fine_bert.common.metrics_manager import metrics_manager
+        from simpler_fine_bert.common.amp_manager import amp_manager
+        from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+        from simpler_fine_bert.common.dataloader_manager import dataloader_manager
+        
+        # Define dependencies using manager classes
+        return {
+            cuda_manager.__class__: ManagerDependency(
+                manager_cls=cuda_manager.__class__,
+                description="CUDA system initialization"
+            ),
+            amp_manager.__class__: ManagerDependency(
+                manager_cls=amp_manager.__class__,
+                depends_on=[cuda_manager.__class__],
+                description="Automatic mixed precision"
+            ),
+            tensor_manager.__class__: ManagerDependency(
+                manager_cls=tensor_manager.__class__,
+                depends_on=[cuda_manager.__class__, amp_manager.__class__],
+                description="Tensor operations"
+            ),
+            batch_manager.__class__: ManagerDependency(
+                manager_cls=batch_manager.__class__,
+                depends_on=[tensor_manager.__class__],
+                description="Batch processing"
+            ),
+            metrics_manager.__class__: ManagerDependency(
+                manager_cls=metrics_manager.__class__,
+                depends_on=[tensor_manager.__class__],
+                description="Metrics tracking"
+            ),
+            tokenizer_manager.__class__: ManagerDependency(
+                manager_cls=tokenizer_manager.__class__,
+                description="Tokenizer management"
+            ),
+            dataloader_manager.__class__: ManagerDependency(
+                manager_cls=dataloader_manager.__class__,
+                depends_on=[cuda_manager.__class__, tensor_manager.__class__, tokenizer_manager.__class__],
+                description="Data loading"
+            )
+        }
 
     @classmethod
-    def _verify_dependencies(cls) -> None:
+    def _verify_dependencies(cls, dependencies: Dict[Type[BaseManager], ManagerDependency]) -> None:
         """Verify that manager dependencies form a valid DAG."""
         visited: Set[Type[BaseManager]] = set()
         temp_visited: Set[Type[BaseManager]] = set()
@@ -81,16 +92,39 @@ class ResourceInitializer:
                 raise ValueError(f"Circular dependency detected: {' -> '.join(cycle)}")
             if manager_cls not in visited:
                 temp_visited.add(manager_cls)
-                for dep in cls._manager_dependencies[manager_cls].depends_on:
-                    if dep not in cls._manager_dependencies:
+                for dep in dependencies[manager_cls].depends_on:
+                    if dep not in dependencies:
                         raise ValueError(f"Unknown dependency {dep.__name__}")
                     visit(dep)
                 temp_visited.remove(manager_cls)
                 visited.add(manager_cls)
         
-        for manager_cls in cls._manager_dependencies:
+        for manager_cls in dependencies:
             if manager_cls not in visited:
                 visit(manager_cls)
+
+    @classmethod
+    def _initialize_cuda_and_amp(cls, config: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize CUDA and AMP first."""
+        # Import managers at runtime
+        from simpler_fine_bert.common.cuda_manager import cuda_manager
+        from simpler_fine_bert.common.amp_manager import amp_manager
+        
+        # Initialize CUDA first
+        if is_cuda_available():
+            if not torch.cuda.is_initialized():
+                cuda_manager.ensure_initialized(config)
+                logger.info("CUDA initialized successfully")
+            else:
+                logger.info("CUDA already initialized by parent process")
+                
+            # Reset CUDA stats
+            clear_cuda_memory()
+            reset_cuda_stats()
+            
+        # Initialize AMP right after CUDA
+        amp_manager.ensure_initialized(config)
+        logger.info("AMP initialized successfully")
 
     @classmethod
     def initialize_process(cls, config: Optional[Dict[str, Any]] = None) -> int:
@@ -120,28 +154,34 @@ class ResourceInitializer:
         logger.info(f"Initializing process resources (PID: {current_pid}, Parent PID: {parent_pid})")
         
         try:
+            # Get dependencies lazily
+            dependencies = cls._get_manager_dependencies()
+            
             # Verify dependencies are valid
-            cls._verify_dependencies()
+            cls._verify_dependencies(dependencies)
             
             # Reset initialization state
-            for dep in cls._manager_dependencies.values():
+            for dep in dependencies.values():
                 dep.initialized = False
             
-            # Initialize CUDA first
-            if not torch.cuda.is_initialized():
-                cuda_dep = cls._manager_dependencies[cuda_manager.__class__]
-                cls._initialize_manager(cuda_dep)
-            else:
-                logger.info("CUDA already initialized by parent process")
-                cls._manager_dependencies[cuda_manager.__class__].initialized = True
-
+            # Initialize CUDA and AMP first
+            cls._initialize_cuda_and_amp(config)
+            
+            # Import managers at runtime
+            from simpler_fine_bert.common.cuda_manager import cuda_manager
+            from simpler_fine_bert.common.amp_manager import amp_manager
+            
+            # Mark CUDA and AMP as initialized
+            dependencies[cuda_manager.__class__].initialized = True
+            dependencies[amp_manager.__class__].initialized = True
+            
             # Initialize remaining managers in dependency order
-            cls._initialize_remaining_managers()
+            cls._initialize_remaining_managers(dependencies)
             
             # Verify all managers were initialized
             uninitialized = [
                 manager_cls.__name__ 
-                for manager_cls, dep in cls._manager_dependencies.items() 
+                for manager_cls, dep in dependencies.items() 
                 if not dep.initialized
             ]
             if uninitialized:
@@ -160,38 +200,41 @@ class ResourceInitializer:
     def _initialize_manager(cls, dep: ManagerDependency) -> None:
         """Initialize a single manager and verify its state."""
         try:
+            # Get manager instance from BaseManager registry
+            manager = BaseManager._instances[dep.manager_cls]
+            
             # Verify dependencies are initialized
             for parent_cls in dep.depends_on:
-                parent_dep = cls._manager_dependencies[parent_cls]
-                if not parent_dep.initialized:
+                parent_manager = BaseManager._instances[parent_cls]
+                if not parent_manager.is_initialized():
                     raise RuntimeError(
-                        f"Cannot initialize {dep.manager.__class__.__name__} - "
+                        f"Cannot initialize {manager.__class__.__name__} - "
                         f"dependency {parent_cls.__name__} not initialized"
                     )
             
             # Initialize manager with config
-            dep.manager.ensure_initialized(cls._config)
+            manager.ensure_initialized(cls._config)
             
             # Verify initialization
-            if not dep.manager.is_initialized():
-                raise RuntimeError(f"{dep.manager.__class__.__name__} failed to initialize properly")
+            if not manager.is_initialized():
+                raise RuntimeError(f"{manager.__class__.__name__} failed to initialize properly")
             
             dep.initialized = True
-            logger.info(f"Initialized {dep.manager.__class__.__name__} ({dep.description})")
+            logger.info(f"Initialized {manager.__class__.__name__} ({dep.description})")
             
         except Exception as e:
-            logger.error(f"Failed to initialize {dep.manager.__class__.__name__}: {str(e)}")
+            logger.error(f"Failed to initialize {dep.manager_cls.__name__}: {str(e)}")
             raise
 
     @classmethod
-    def _initialize_remaining_managers(cls) -> None:
+    def _initialize_remaining_managers(cls, dependencies: Dict[Type[BaseManager], ManagerDependency]) -> None:
         """Initialize remaining managers in dependency order."""
         while True:
             progress = False
             
-            for manager_cls, dep in cls._manager_dependencies.items():
+            for manager_cls, dep in dependencies.items():
                 if not dep.initialized and all(
-                    cls._manager_dependencies[parent_cls].initialized 
+                    dependencies[parent_cls].initialized 
                     for parent_cls in dep.depends_on
                 ):
                     cls._initialize_manager(dep)
@@ -203,16 +246,30 @@ class ResourceInitializer:
     @classmethod
     def cleanup_process(cls) -> None:
         """Clean up all process resources in reverse dependency order."""
-        # Clean up in reverse initialization order
-        for manager_cls, dep in reversed(list(cls._manager_dependencies.items())):
-            if dep.initialized:
-                try:
-                    # Use BaseManager's cleanup mechanism
-                    dep.manager.cleanup_all()
-                    dep.initialized = False
-                    logger.info(f"Cleaned up {manager_cls.__name__}")
-                except Exception as e:
-                    logger.error(f"Error cleaning up {manager_cls.__name__}: {str(e)}")
-        
-        # Clear stored config
-        cls._config = None
+        try:
+            # Get dependencies lazily
+            dependencies = cls._get_manager_dependencies()
+            
+            # Clean up in reverse initialization order
+            for manager_cls, dep in reversed(list(dependencies.items())):
+                if dep.initialized:
+                    try:
+                        # Get manager instance from BaseManager registry
+                        manager = BaseManager._instances[dep.manager_cls]
+                        # Use BaseManager's cleanup mechanism
+                        manager.cleanup_all()
+                        dep.initialized = False
+                        logger.info(f"Cleaned up {manager_cls.__name__}")
+                    except Exception as e:
+                        logger.error(f"Error cleaning up {manager_cls.__name__}: {str(e)}")
+            
+            # Clear stored config
+            cls._config = None
+            
+            # Clean up CUDA memory
+            if is_cuda_available():
+                clear_cuda_memory()
+            
+        except Exception as e:
+            logger.error(f"Error during cleanup: {str(e)}")
+            raise

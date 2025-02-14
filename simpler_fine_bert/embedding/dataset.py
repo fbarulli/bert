@@ -15,8 +15,7 @@ import functools
 import gc
 
 from simpler_fine_bert.common.utils import parallel_map, create_memmap_array, load_memmap_array, measure_memory
-from simpler_fine_bert.common.cuda_utils import cuda_manager
-from simpler_fine_bert.common.tensor_manager import tensor_manager
+from simpler_fine_bert.common.cuda_utils import get_tensor_manager
 from simpler_fine_bert.embedding.masking import SpanMaskingModule
 
 logger = logging.getLogger(__name__)
@@ -202,6 +201,9 @@ class CSVDataset(Dataset):
         # Convert split-relative index to absolute index
         idx = idx + self.start_idx
         
+        # Get tensor manager at runtime
+        tensor_manager = get_tensor_manager()
+        
         # Create tensors on CPU with pinned memory
         item = {
             'input_ids': tensor_manager.create_cpu_tensor(self.input_ids[idx], dtype=torch.long),
@@ -258,6 +260,9 @@ class EmbeddingDataset(CSVDataset):
         """
         if inputs.dim() != 1:
             raise ValueError(f"Expected 1D input tensor, got shape: {inputs.shape}")
+            
+        # Get tensor manager at runtime
+        tensor_manager = get_tensor_manager()
             
         # Apply masking using the module (returns CPU tensors)
         masked_inputs, labels = self.masking_module(inputs)

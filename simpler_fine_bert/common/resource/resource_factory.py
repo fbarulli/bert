@@ -7,7 +7,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from transformers import BertConfig
 
-from simpler_fine_bert.common.cuda_utils import cuda_manager
+from simpler_fine_bert.common.cuda_utils import get_cuda_device
 from torch.utils.data import Dataset, DataLoader
 
 logger = logging.getLogger(__name__)
@@ -137,6 +137,8 @@ class ResourceFactory:
                 position_embedding_type="absolute",
                 use_cache=True,
                 classifier_dropout=None,
+                tie_word_embeddings=True,  # Enable weight tying
+                safe_serialization=False  # Disable safe serialization
             )
             
             # Initialize model with pre-trained weights
@@ -144,7 +146,7 @@ class ResourceFactory:
             model = EmbeddingBert.from_pretrained(
                 config['model']['name'],
                 config=model_config,
-                tie_weights=True  # Important for embedding learning
+                tie_weights=None  # Let HuggingFace handle weight tying
             )
 
             # Freeze all layers first
@@ -261,7 +263,7 @@ class ResourceFactory:
         """Create fresh resources for a process."""
         try:
             # Get process-specific device
-            device = cuda_manager.get_device(device_id if device_id is not None else 0)
+            device = get_cuda_device(device_id)
             
             # Create all registered resource types
             resources = {'device': device}

@@ -19,8 +19,6 @@ from torch.optim import Optimizer
 import matplotlib.pyplot as plt
 from transformers import get_linear_schedule_with_warmup
 
-from simpler_fine_bert.common.cuda_utils import cuda_manager, batch_manager
-from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
 from simpler_fine_bert.common.metrics_logger import MetricsLogger
 from simpler_fine_bert.common.storage_manager import StorageManager
 
@@ -45,6 +43,12 @@ class BaseTrainer:
         val_dataset: Optional[Any] = None
     ):
         """Initialize trainer."""
+        # Import managers at runtime
+        from simpler_fine_bert.common.cuda_manager import cuda_manager
+        from simpler_fine_bert.common.batch_manager import batch_manager
+        from simpler_fine_bert.common.amp_manager import amp_manager
+        from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+        
         # Store basic attributes
         self.model = model
         self.config = config
@@ -55,6 +59,12 @@ class BaseTrainer:
         self.job_id = job_id
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
+        
+        # Store manager references
+        self._cuda_manager = cuda_manager
+        self._batch_manager = batch_manager
+        self._amp_manager = amp_manager
+        self._tokenizer_manager = tokenizer_manager
         
         # Initialize storage manager
         self.storage_manager = StorageManager(metrics_dir)
@@ -115,7 +125,7 @@ class BaseTrainer:
         
         # Create CUDA graph if enabled
         if self.use_cuda_graph:
-            cuda_manager.create_graph(self.forward_static)
+            self._cuda_manager.create_graph(self.forward_static)
             
         logger.info(
             f"Initialized trainer with:\n"
@@ -195,14 +205,14 @@ class BaseTrainer:
         """Forward pass with device management and error handling."""
         try:
             with record_function("batch_to_device"):
-                device_batch = batch_manager.prepare_batch(batch, self.device)
+                device_batch = self._batch_manager.prepare_batch(batch, self.device)
             
             if self.use_cuda_graph:
                 with record_function("cuda_graph_replay"):
-                    cuda_manager.replay_graph()
+                    self._cuda_manager.replay_graph()
                     return self.static_outputs, device_batch
                     
-            with record_function("model_forward"), cuda_manager.amp.autocast():
+            with record_function("model_forward"), self._amp_manager.autocast():
                 outputs = self.model(**device_batch)
                 
                 if not (hasattr(outputs, 'loss') or (isinstance(outputs, dict) and 'loss' in outputs)):
@@ -240,7 +250,7 @@ class BaseTrainer:
             loss = loss / self.gradient_accumulation
         
         with record_function("backward_step"):
-            cuda_manager.amp.backward_step(
+            self._amp_manager.backward_step(
                 loss=loss,
                 model=self.model,
                 optimizer=optimizer,
@@ -505,7 +515,8 @@ class BaseTrainer:
             save_dir = self.metrics_dir.parent / 'model'
             save_dir.mkdir(exist_ok=True)
             
-            self.model.save_pretrained(save_dir)
+            # Save with safe_serialization=False to handle shared tensors
+            self.model.save_pretrained(save_dir, safe_serialization=False)
             logger.info(f"Saved model to {save_dir}")
 
     def cleanup_memory(self, aggressive: bool = False) -> None:
@@ -517,7 +528,7 @@ class BaseTrainer:
             
             gc.collect()
             
-            if aggressive:
+            if aggressive and not hasattr(self, '_cleaned_up'):
                 if hasattr(self, 'model') and self.model is not None:
                     self.model.cpu()
                 
@@ -532,9 +543,10 @@ class BaseTrainer:
                     del self.val_dataset
                 
                 if self.is_trial and self.trial:
-                    tokenizer_manager.cleanup_worker(self.trial.number)
+                    self._tokenizer_manager.cleanup_worker(self.trial.number)
                 
                 gc.collect()
+                self._cleaned_up = True
                 
         except Exception as e:
             logger.error(f"Error during memory cleanup: {str(e)}")

@@ -6,7 +6,6 @@ from typing import Optional, Dict, Any
 from contextlib import contextmanager
 
 from simpler_fine_bert.common.base_manager import BaseManager
-from simpler_fine_bert.common.cuda_manager import cuda_manager
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +17,13 @@ class AMPManager(BaseManager):
         try:
             # Call parent's initialization first
             super()._initialize_process_local(config)
+            
+            # Import cuda_manager at runtime
+            from simpler_fine_bert.common.cuda_manager import cuda_manager
+            
+            # Verify CUDA is initialized
+            if not cuda_manager.is_initialized():
+                raise RuntimeError("CUDA must be initialized before AMPManager")
             
             # Initialize scaler only if CUDA is available and FP16 is enabled
             if cuda_manager.is_available():
@@ -31,6 +37,9 @@ class AMPManager(BaseManager):
             else:
                 self._local.scaler = None
                 logger.warning("CUDA not available, AMP disabled")
+                
+            logger.info(f"AMPManager initialized for process {self._local.pid}")
+            
         except Exception as e:
             logger.error(f"Failed to initialize GradScaler: {str(e)}")
             logger.error(traceback.format_exc())

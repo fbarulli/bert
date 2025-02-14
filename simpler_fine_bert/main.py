@@ -13,25 +13,19 @@ from typing import Dict, Any
 
 from simpler_fine_bert.common.utils import setup_logging, seed_everything
 from simpler_fine_bert.common.config_utils import load_config
-from simpler_fine_bert.embedding import train_embeddings, validate_embeddings
-from simpler_fine_bert.common.resource import resource_factory
-from simpler_fine_bert.common.parameter_manager import parameter_manager
-from simpler_fine_bert.common.resource_manager import resource_manager
-from simpler_fine_bert.common.worker_manager import worker_manager
-from simpler_fine_bert.common.storage_manager import storage_manager
-from simpler_fine_bert.common.metrics_manager import metrics_manager
-from simpler_fine_bert.common.cuda_manager import cuda_manager
-from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
-from simpler_fine_bert.classification import (
-    run_classification_optimization,
-    train_final_model
-)
 
 logger = logging.getLogger(__name__)
 
 def train_model(config: Dict[str, Any]) -> None:
     """Train model with proper process isolation."""
     try:
+        # Import training functions at runtime
+        from simpler_fine_bert.embedding import train_embeddings, validate_embeddings
+        from simpler_fine_bert.classification import (
+            run_classification_optimization,
+            train_final_model
+        )
+        
         # Set random seed
         seed_everything(config['training']['seed'])
         
@@ -60,14 +54,15 @@ def train_model(config: Dict[str, Any]) -> None:
         logger.error(f"Error initializing training: {str(e)}")
         raise
 
-def main():
-    """Main entry point."""
+def initialize_managers(config: Dict[str, Any]) -> None:
+    """Initialize all managers with config."""
     try:
-        logger.info(f"Main Process ID: {os.getpid()}")
-        logger.info("Loading configuration...")
-        
-        config = load_config("config_embedding.yaml")
-        logger.info("Configuration loaded successfully")
+        # Import managers at runtime
+        from simpler_fine_bert.common.resource_manager import resource_manager
+        from simpler_fine_bert.common.parameter_manager import parameter_manager
+        from simpler_fine_bert.common.worker_manager import worker_manager
+        from simpler_fine_bert.common.storage_manager import storage_manager
+        from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
         
         # Initialize resource manager with config first
         resource_manager.config = config
@@ -82,6 +77,32 @@ def main():
         
         logger.info("All managers initialized with config")
         
+    except Exception as e:
+        logger.error(f"Failed to initialize managers: {str(e)}")
+        raise
+
+def cleanup_resources() -> None:
+    """Clean up all resources."""
+    try:
+        # Import ResourceInitializer at runtime
+        from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
+        ResourceInitializer.cleanup_process()
+    except Exception as e:
+        logger.error(f"Error during cleanup: {str(e)}")
+        raise
+
+def main():
+    """Main entry point."""
+    try:
+        logger.info(f"Main Process ID: {os.getpid()}")
+        logger.info("Loading configuration...")
+        
+        config = load_config("config_embedding.yaml")
+        logger.info("Configuration loaded successfully")
+        
+        # Initialize all managers
+        initialize_managers(config)
+        
         logger.info("\n=== Starting Training ===")
         train_model(config)
         logger.info("Training completed successfully")
@@ -91,7 +112,7 @@ def main():
         raise
     finally:
         logger.info("Cleaning up resources...")
-        ResourceInitializer.cleanup_process()
+        cleanup_resources()
 
 if __name__ == '__main__':
     # Setup logging first for visibility
