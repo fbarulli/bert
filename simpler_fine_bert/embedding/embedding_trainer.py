@@ -28,7 +28,7 @@ class EmbeddingTrainer(get_base_trainer()):
         metrics_dir: Optional[str] = None,
         is_trial: bool = False,
         trial: Optional['optuna.Trial'] = None,
-        wandb_manager: Optional['WandbManager'] = None,
+        wandb_manager: Optional['simpler_fine_bert.common.managers.wandb_manager.WandbManager'] = None,
         job_id: Optional[int] = None,
         train_dataset: Optional['Dataset'] = None,
         val_dataset: Optional['Dataset'] = None

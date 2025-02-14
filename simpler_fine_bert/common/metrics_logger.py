@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-from simpler_fine_bert.common.wandb_manager import WandbManager
-from simpler_fine_bert.common.managers import get_metrics_manager
+from simpler_fine_bert.common.managers import get_metrics_manager, get_wandb_manager
+
+# Get manager instances
+metrics_manager = get_metrics_manager()
+WandbManager = get_wandb_manager().__class__  # Get the class for type hints
 
 # Get manager instance
 metrics_manager = get_metrics_manager()

@@ -20,7 +20,10 @@ import matplotlib.pyplot as plt
 from transformers import get_linear_schedule_with_warmup
 
 from simpler_fine_bert.common.metrics_logger import MetricsLogger
-from simpler_fine_bert.common.storage_manager import StorageManager
+from simpler_fine_bert.common.managers import get_storage_manager
+
+# Get manager instance
+storage_manager = get_storage_manager()
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +78,7 @@ class BaseTrainer:
         self._tokenizer_manager = tokenizer_manager
         
         # Initialize storage manager
-        self.storage_manager = StorageManager(metrics_dir)
+        self.storage_manager = storage_manager
         
         # Get training config
         self.grad_norm = config['training']['max_grad_norm']
