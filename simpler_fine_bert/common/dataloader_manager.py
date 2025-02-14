@@ -9,8 +9,8 @@ import traceback
 from typing import Any, Optional
 from torch.utils.data import Dataset, DataLoader
 
-from simpler_fine_bert.base_manager import BaseManager
-from simpler_fine_bert.cuda_manager import cuda_manager
+from simpler_fine_bert.common.base_manager import BaseManager
+from simpler_fine_bert.common.cuda_manager import cuda_manager
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ def worker_init_fn(worker_id: int) -> None:
     """Initialize worker process with centralized resource management."""
     try:
         # Initialize all process resources through ResourceInitializer
-        from simpler_fine_bert.resource_initializer import ResourceInitializer
+        from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
         current_pid = ResourceInitializer.initialize_process()
         logger.info(f"Initialized DataLoader worker {worker_id} (PID: {current_pid})")
     except Exception as e:

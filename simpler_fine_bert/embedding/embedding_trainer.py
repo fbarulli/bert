@@ -28,7 +28,9 @@ class EmbeddingTrainer(get_base_trainer()):
         wandb_manager: Optional['WandbManager'] = None,
         job_id: Optional[int] = None,
         train_dataset: Optional['Dataset'] = None,
-        val_dataset: Optional['Dataset'] = None
+        val_dataset: Optional['Dataset'] = None,
+        world_size: int = 1,
+        rank: int = 0
     ) -> None:
         """Initialize embedding trainer."""
         # Create metrics directory before initialization
@@ -44,7 +46,9 @@ class EmbeddingTrainer(get_base_trainer()):
             wandb_manager=wandb_manager,
             job_id=job_id,
             train_dataset=train_dataset,
-            val_dataset=val_dataset
+            val_dataset=val_dataset,
+            world_size=world_size,
+            rank=rank
         )
         self.best_embedding_loss = float('inf')
         # Create optimizer
@@ -83,6 +87,10 @@ class EmbeddingTrainer(get_base_trainer()):
             logger.error(f"Batch type: {type(batch)}")
             logger.error(f"Batch keys: {batch.keys() if isinstance(batch, dict) else 'Not a dict'}")
             raise
+
+    def get_current_lr(self) -> float:
+        """Get current learning rate from optimizer."""
+        return self._optimizer.param_groups[0]['lr'] if self._optimizer else 0.0
 
     def cleanup_memory(self, aggressive: bool = False) -> None:
         """Clean up embedding-specific memory resources."""
