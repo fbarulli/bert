@@ -7,7 +7,7 @@ import optuna
 from optuna.trial import Trial
 
 from simpler_fine_bert.common.resource.resource_factory import resource_factory
-from simpler_fine_bert.common.cuda_utils import cuda_manager
+from simpler_fine_bert.common.cuda_utils import is_cuda_available
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class TrialExecutor:
     def __init__(self, base_config: Dict[str, Any], n_jobs: int):
         self.base_config = base_config
         self.n_jobs = n_jobs
-        self.cuda_available = torch.cuda.is_available()
+        self.cuda_available = is_cuda_available()
         
     def run_trials(
         self,
@@ -94,3 +94,25 @@ class TrialExecutor:
         while not result_queue.empty():
             results.append(result_queue.get())
         return results
+
+    def _cleanup_resources(self, queues, workers):
+        """Clean up resources."""
+        # Clean up queues
+        for q in queues:
+            if q is not None:
+                try:
+                    while not q.empty():
+                        _ = q.get_nowait()
+                except (mp.queues.Empty, EOFError, BrokenPipeError):
+                    pass
+                finally:
+                    q.close()
+                    q.join_thread()
+        
+        # Clean up workers
+        for w in workers:
+            if w is not None and w.is_alive():
+                w.terminate()
+                w.join(timeout=1)
+                if w.is_alive():
+                    w.kill()

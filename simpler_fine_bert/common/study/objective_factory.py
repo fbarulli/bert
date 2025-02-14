@@ -15,18 +15,16 @@ from optuna.trial import FixedTrial
 from torch.nn import Module
 from torch.optim import Optimizer
 
-from simpler_fine_bert.common.cuda_utils import cuda_manager
-from simpler_fine_bert.common.dataloader_manager import dataloader_manager
-from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+from simpler_fine_bert.common import (
+    get_cuda_manager,
+    get_dataloader_manager,
+    get_tokenizer_manager,
+    get_model_manager,
+    get_resource_manager
+)
 from simpler_fine_bert.embedding.dataset import EmbeddingDataset
 from simpler_fine_bert.embedding.embedding_trainer import EmbeddingTrainer
 from simpler_fine_bert.common.utils import create_optimizer
-from simpler_fine_bert.common.resource_manager import resource_manager
-
-def get_model_manager():
-    """Get model manager instance at runtime to avoid circular imports."""
-    from simpler_fine_bert.common.model_manager import model_manager
-    return model_manager
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +66,13 @@ class ObjectiveFactory:
             # Initialize all process resources
             from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
             ResourceInitializer.initialize_process()
+            
+            # Get managers at runtime
+            cuda_manager = get_cuda_manager()
+            tokenizer_manager = get_tokenizer_manager()
+            resource_manager = get_resource_manager()
+            model_manager = get_model_manager()
+            
             device = cuda_manager.get_device()  # Now safe to use after initialization
             logger.info(f"Running trial {trial.number} on {device} in process {current_pid}")
             
@@ -94,8 +99,8 @@ class ObjectiveFactory:
                 val_dataset
             )
 
-            # Get model manager and create model
-            model = get_model_manager().get_worker_model(
+            # Get model through model manager
+            model = model_manager.get_worker_model(
                 worker_id=trial.number,
                 model_name=trial_config['model']['name'],
                 device_id=device.index if device.type == 'cuda' else None,
@@ -139,7 +144,9 @@ class ObjectiveFactory:
                         del var
                 
                 # Clean up model and tokenizer manager resources
-                get_model_manager().cleanup_worker(trial.number)
+                model_manager = get_model_manager()
+                tokenizer_manager = get_tokenizer_manager()
+                model_manager.cleanup_worker(trial.number)
                 tokenizer_manager.cleanup_worker(trial.number)
                 
                 # Clean up all process resources in proper order

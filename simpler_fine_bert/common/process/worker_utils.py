@@ -11,7 +11,7 @@ import multiprocessing as mp
 from typing import Dict, Any, Optional, Tuple
 import torch
 
-from simpler_fine_bert.common.cuda_utils import cuda_manager
+from simpler_fine_bert.common import get_cuda_manager
 from simpler_fine_bert.common.study.objective_factory import ObjectiveFactory
 from simpler_fine_bert.common.process.process_init import (
     initialize_process,
@@ -96,6 +96,8 @@ def run_worker(
                 # Initialize CUDA
                 logger.info("\n=== Initializing CUDA ===")
                 try:
+                    # Get cuda_manager at runtime
+                    cuda_manager = get_cuda_manager()
                     cuda_manager.setup(config)
                     logger.info(f"CUDA initialized successfully for process {current_pid}")
                 except Exception as e:

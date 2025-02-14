@@ -8,8 +8,7 @@ import traceback  # for error handling
 from typing import Dict, List, Tuple, Optional, Union, Any
 import numpy.typing as npt
 
-from simpler_fine_bert.common.cuda_utils import tensor_manager
-from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.cuda_utils import get_cuda_manager, get_tensor_manager
 
 # Configure logging
 logging.basicConfig(
@@ -247,6 +246,9 @@ class SimCSEEmbeddingLoss(nn.Module):
             batch_size = embeddings.size(0) // 2
             z1, z2 = embeddings[:batch_size], embeddings[batch_size:]
             
+            # Get cuda_manager at runtime
+            cuda_manager = get_cuda_manager()
+            
             # Normalize embeddings
             with cuda_manager.amp.autocast(enabled=self.use_amp):
                 z1 = F.normalize(z1, dim=1)
@@ -313,6 +315,8 @@ class ContrastiveLearningWrapper:
     def register_queue(self) -> None:
         try:
             self.queue: Optional[torch.Tensor] = None
+            # Get tensor_manager at runtime
+            tensor_manager = get_tensor_manager()
             self.queue_ptr = tensor_manager.create_tensor(torch.zeros(1), dtype=torch.long)
             logger.info(f"Queue initialized with size {self.queue_size}")
         except Exception as e:
@@ -324,6 +328,9 @@ class ContrastiveLearningWrapper:
     def _dequeue_and_enqueue(self, keys: torch.Tensor) -> None:
         try:
             batch_size = keys.shape[0]
+            
+            # Get tensor_manager at runtime
+            tensor_manager = get_tensor_manager()
             
             # Initialize queue if not exists
             if self.queue is None:
@@ -363,6 +370,9 @@ class ContrastiveLearningWrapper:
     ) -> Dict[str, torch.Tensor]:
         logger.debug("Computing contrastive loss")
         try:
+            # Get tensor_manager at runtime
+            tensor_manager = get_tensor_manager()
+            
             # Process features in chunks if needed
             if features.size(0) > self.chunk_size:
                 total_loss = 0.0
@@ -375,7 +385,10 @@ class ContrastiveLearningWrapper:
                     chunk_features = features[start_idx:end_idx]
                     chunk_labels = labels[start_idx:end_idx] if labels is not None else None
                     
-                    with torch.cuda.amp.autocast(enabled=True):
+                    # Get cuda_manager at runtime
+                    cuda_manager = get_cuda_manager()
+                    
+                    with cuda_manager.amp.autocast(enabled=True):
                         # Get negative samples from queue
                         if self.queue is not None:
                             all_features = torch.cat([chunk_features, self.queue], dim=0)

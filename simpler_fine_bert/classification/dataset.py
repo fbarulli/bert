@@ -15,8 +15,7 @@ import functools
 import gc
 
 from simpler_fine_bert.common.utils import parallel_map, create_memmap_array, load_memmap_array, measure_memory
-from simpler_fine_bert.common.cuda_utils import cuda_manager
-from simpler_fine_bert.common.tensor_manager import tensor_manager
+from simpler_fine_bert.common.cuda_utils import get_tensor_manager
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +199,9 @@ class CSVDataset(Dataset):
         """Get a single item from the dataset."""
         # Convert split-relative index to absolute index
         idx = idx + self.start_idx
+        
+        # Get tensor_manager at runtime
+        tensor_manager = get_tensor_manager()
         
         # Create tensors on CPU with pinned memory
         item = {
