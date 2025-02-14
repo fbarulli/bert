@@ -16,6 +16,7 @@ def get_data_manager():
     """Get data manager instance at runtime to avoid circular imports."""
     from simpler_fine_bert.common.data_manager import data_manager
     return data_manager
+
 def get_embedding_model():
     """Get EmbeddingBert class at runtime to avoid circular imports."""
     from simpler_fine_bert.embedding.model import EmbeddingBert
@@ -31,6 +32,39 @@ def get_dataset_class(stage: str = 'embedding'):
         return CSVDataset
     else:
         raise ValueError(f"Unknown stage: {stage}")
+
+def create_dataset(config: Dict[str, Any], split: str = 'train', stage: str = 'embedding') -> Dataset:
+    """Create a dataset instance.
+    
+    Args:
+        config: Configuration dictionary
+        split: Dataset split to create
+        stage: Stage of training ('embedding' or 'classification')
+        
+    Returns:
+        Created Dataset instance
+    """
+    DatasetClass = get_dataset_class(stage)
+    return DatasetClass(
+        data_path=Path(config['data']['csv_path']),
+        tokenizer=get_data_manager().get_tokenizer(config),
+        max_length=config['data']['max_length'],
+        split=split,
+        train_ratio=float(config['data']['train_ratio'])
+    )
+
+def create_dataloader(config: Dict[str, Any], dataset: Optional[Dataset] = None, split: str = 'train') -> DataLoader:
+    """Create a dataloader instance.
+    
+    Args:
+        config: Configuration dictionary
+        dataset: Optional dataset to create loader for
+        split: Dataset split if creating new dataset
+        
+    Returns:
+        Created DataLoader instance
+    """
+    return get_data_manager().create_dataloader(config=config, dataset=dataset, split=split)
 
 T = TypeVar('T')
 
@@ -50,23 +84,13 @@ class ResourceFactory:
             'dataset': ResourceType(
                 name='dataset',
                 description='Dataset resources',
-                factory=lambda config, split='train', stage='embedding': get_dataset_class(stage)(
-                    data_path=Path(config['data']['csv_path']),
-                    tokenizer=get_data_manager().get_tokenizer(config),
-                    max_length=config['data']['max_length'],
-                    split=split,
-                    train_ratio=float(config['data']['train_ratio'])
-                ),
+                factory=create_dataset,
                 validator=lambda x: isinstance(x, Dataset)
             ),
             'dataloader': ResourceType(
                 name='dataloader',
                 description='DataLoader resources',
-                factory=lambda config, dataset=None, split='train': get_data_manager().create_dataloader(
-                    config=config,
-                    dataset=dataset,
-                    split=split
-                ),
+                factory=create_dataloader,
                 validator=lambda x: isinstance(x, DataLoader)
             ),
             'model': ResourceType(

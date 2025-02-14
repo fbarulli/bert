@@ -9,36 +9,10 @@ from torch.utils.data import Dataset, DataLoader
 
 from simpler_fine_bert.common.base_manager import BaseManager
 from simpler_fine_bert.common.cuda_manager import cuda_manager
+from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
+from simpler_fine_bert.common.process.initialization import get_worker_init_fn
 
 logger = logging.getLogger(__name__)
-
-def _worker_init_fn(worker_id: int, config: Optional[Dict[str, Any]] = None) -> None:
-    """Initialize worker process with centralized resource management."""
-    try:
-        # Set spawn method for any sub-processes
-        import multiprocessing
-        if multiprocessing.get_start_method(allow_none=True) != 'spawn':
-            try:
-                multiprocessing.set_start_method('spawn', force=True)
-            except RuntimeError as e:
-                logger.warning(f"Could not set spawn method in worker {worker_id}: {e}")
-        
-        # Initialize all process resources through ResourceInitializer
-        from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
-        current_pid = ResourceInitializer.initialize_process(config)
-        logger.info(f"Initialized DataLoader worker {worker_id} (PID: {current_pid})")
-    except RuntimeError as e:
-        if "Cannot re-initialize CUDA" in str(e):
-            logger.error(f"CUDA initialization failed in worker {worker_id} - ensure spawn start method is used")
-            logger.error(f"Current start method: {multiprocessing.get_start_method()}")
-        logger.error(f"Failed to initialize DataLoader worker {worker_id}: {str(e)}")
-        logger.error(traceback.format_exc())
-        # Attempt cleanup on failure
-        try:
-            ResourceInitializer.cleanup_process()
-        except Exception as cleanup_error:
-            logger.error(f"Failed to clean up worker {worker_id}: {str(cleanup_error)}")
-        raise
 
 class DataLoaderManager(BaseManager):
     """Process-local dataloader manager."""
@@ -115,9 +89,14 @@ class DataLoaderManager(BaseManager):
             # Add prefetch_factor only if using workers
             kwargs = dict(kwargs)  # Make a copy to modify
             if num_workers > 0:
-                kwargs['prefetch_factor'] = kwargs.get('prefetch_factor', 2)
+                # Use explicit dictionary access instead of get() to avoid lambda
+                prefetch = 2  # Default value
+                if 'prefetch_factor' in kwargs:
+                    prefetch = kwargs['prefetch_factor']
+                kwargs['prefetch_factor'] = prefetch
             elif 'prefetch_factor' in kwargs:
                 del kwargs['prefetch_factor']  # Remove if no workers
+
             if pin_memory is None:
                 # Only enable pin_memory if explicitly set or if CUDA is available
                 try:
@@ -126,10 +105,12 @@ class DataLoaderManager(BaseManager):
                     logger.warning("pin_memory not initialized, defaulting to False")
                     pin_memory = False
                 
-            # Create worker initialization function with config
-            worker_init = None
+            # Store config in ResourceInitializer for worker processes
             if num_workers > 0:
-                worker_init = lambda worker_id: _worker_init_fn(worker_id, config)
+                ResourceInitializer._config = config
+                
+            # Get worker initialization function
+            worker_init_fn = get_worker_init_fn(num_workers)
                 
             # Create dataloader with settings and worker initialization
             dataloader = DataLoader(
@@ -138,7 +119,7 @@ class DataLoaderManager(BaseManager):
                 shuffle=shuffle,
                 num_workers=num_workers,
                 pin_memory=pin_memory,
-                worker_init_fn=worker_init,
+                worker_init_fn=worker_init_fn,
                 **kwargs
             )
             
