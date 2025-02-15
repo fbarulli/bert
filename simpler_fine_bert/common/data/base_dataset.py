@@ -41,7 +41,7 @@ def process_batch_parallel(tokenizer: PreTrainedTokenizerFast, texts: List[str],
             'input_ids': encoding['input_ids'].squeeze(0),
             'attention_mask': encoding['attention_mask'].squeeze(0),
             'special_tokens_mask': encoding['special_tokens_mask'].squeeze(0),
-            'word_ids': np.array([-1 if not span else i for i, span in enumerate(encoding['offset_mapping'].squeeze(0))], dtype=np.int64)
+            'word_ids': np.array([-1 if len(span) == 0 or (span[0] == 0 and span[1] == 0) else i for i, span in enumerate(encoding['offset_mapping'].squeeze(0))], dtype=np.int64)
         }
     
     with ThreadPoolExecutor(max_workers=4) as executor:

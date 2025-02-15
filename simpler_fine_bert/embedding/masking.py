@@ -135,10 +135,6 @@ class MaskingModule:
             if any(word_ids[j] is None for j in range(start, end)):
                 continue
                 
-            # For span masking, ensure enough tokens remain
-            if max_span_length and i + max_span_length > len(word_boundaries):
-                continue
-                
             maskable.append((start, end))
             
         return maskable
@@ -324,74 +320,178 @@ class SpanMaskingModule(MaskingModule):
             logger.warning("No maskable word boundaries found")
             return input_ids, torch.full_like(input_ids, -100)
         
-        # Calculate target number of tokens to mask (15% of total)
-        total_tokens = sum(end - start for start, end in maskable_boundaries)
-        target_masked = int(total_tokens * self.mask_prob)  # Always mask 15%
+        # Calculate target based on total sequence length
+        seq_length = len(input_ids)
+        target_masked = int(seq_length * self.mask_prob)  # Target 15% of total sequence
         
-        # Calculate number of spans needed for target
-        avg_span_length = (1 + self.max_span_length) / 2  # Expected span length
-        num_spans = min(
-            int(target_masked / avg_span_length + 0.5),  # Round up spans needed
-            len(maskable_boundaries)  # Don't exceed available boundaries
+        logger.debug(
+            f"Masking targets:\n"
+            f"- Sequence length: {seq_length}\n"
+            f"- Target tokens: {target_masked} ({self.mask_prob:.1%})\n"
+            f"- Maskable boundaries: {len(maskable_boundaries)}"
         )
-        num_spans = max(1, num_spans)  # At least one span
         
-        # Select span positions
-        span_positions = []
-        available_positions = list(range(len(maskable_boundaries)))
-        random.shuffle(available_positions)
+        # Analyze token overlap in boundaries
+        token_counts = {}  # Track how many boundaries each token appears in
+        boundary_tokens = []  # Track tokens in each boundary
+        for i, (start, end) in enumerate(maskable_boundaries):
+            tokens = set(range(start, end))
+            boundary_tokens.append(tokens)
+            for token in tokens:
+                token_counts[token] = token_counts.get(token, 0) + 1
         
-        for pos in available_positions:
-            if len(span_positions) >= num_spans:
-                break
-                
-            # Ensure position has enough following words for a span
-            if pos + self.max_span_length <= len(maskable_boundaries):
-                span_positions.append(pos)
+        # Calculate overlap statistics
+        all_tokens = set(token_counts.keys())
+        overlap_tokens = {t for t, c in token_counts.items() if c > 1}
+        max_overlap = max(token_counts.values()) if token_counts else 0
+        avg_overlap = sum(token_counts.values()) / len(token_counts) if token_counts else 0
         
-        if not span_positions:
-            logger.warning("No valid span positions found")
-            return input_ids, torch.full_like(input_ids, -100)
-            
-        # Sort positions to maintain sequence order
-        span_positions.sort()
+        logger.debug(
+            f"Boundary overlap analysis:\n"
+            f"- Total tokens: {len(all_tokens)}\n"
+            f"- Tokens in multiple boundaries: {len(overlap_tokens)}\n"
+            f"- Max overlap count: {max_overlap}\n"
+            f"- Average overlap: {avg_overlap:.1f}"
+        )
+        
+        # Preprocess boundaries with overlap info
+        processed_boundaries = []
+        for i, (start, end) in enumerate(maskable_boundaries):
+            length = end - start
+            overlap_score = sum(token_counts[t] for t in range(start, end))
+            processed_boundaries.append((i, start, end, length, overlap_score))
+        
+        # Sort by length and overlap score
+        processed_boundaries.sort(key=lambda x: (x[3], x[4]), reverse=True)
+        
+        # Initialize masking state
         masked_positions = set()
+        successful_attempts = 0
+        attempts = 0
+        max_attempts = len(maskable_boundaries) * 2
         
-        # Apply masking for each span
-        for pos in span_positions:
-            # Calculate span length
-            remaining = target_masked - len(masked_positions)
-            if remaining <= 0:
+        logger.debug(
+            f"Token distribution:\n"
+            f"- Unique tokens: {len(all_tokens)}\n"
+            f"- Tokens per boundary: {len(all_tokens)/len(maskable_boundaries):.1f}\n"
+            f"- Coverage: {len(all_tokens)/seq_length:.1%}"
+        )
+        
+        # Track phase statistics
+        first_pass_tokens = 0
+        second_pass_tokens = 0
+        fallback_tokens = 0
+        used_boundaries = set()
+        
+        # First pass: Try longer spans first
+        for idx, start, end, length, overlap_score in processed_boundaries:
+            if len(masked_positions) >= target_masked:
                 break
                 
-            max_length = min(
-                self.max_span_length,
-                len(maskable_boundaries) - pos,
-                remaining
-            )
-            span_length = random.randint(1, max_length)
-            
-            # Get span boundaries
-            span_start = maskable_boundaries[pos][0]
-            span_end = maskable_boundaries[pos + span_length - 1][1]
-            
             # Apply masking
-            self._apply_token_masking(input_ids, span_start, span_end)
-            masked_positions.update(range(span_start, span_end))
+            new_tokens = set(range(start, end)) - masked_positions
+            if new_tokens:
+                self._apply_token_masking(input_ids, start, end)
+                masked_positions.update(new_tokens)
+                used_boundaries.add(idx)
+                first_pass_tokens += len(new_tokens)
+                successful_attempts += 1
+                
+                logger.debug(
+                    f"First pass masking:\n"
+                    f"- Boundary {idx} (length {length}, overlap {overlap_score})\n"
+                    f"- New tokens: {len(new_tokens)}\n"
+                    f"- Current ratio: {len(masked_positions)/seq_length:.1%}"
+                )
         
+        # Second pass: Reuse effective boundaries if needed
+        while len(masked_positions) < target_masked and attempts < max_attempts:
+            attempts += 1
+            
+            # Try boundaries that gave most tokens first
+            remaining_target = target_masked - len(masked_positions)
+            for idx, start, end, length, overlap_score in processed_boundaries:
+                if len(masked_positions) >= target_masked:
+                    break
+                    
+                # Skip if this boundary wouldn't help
+                new_tokens = set(range(start, end)) - masked_positions
+                if len(new_tokens) == 0:
+                    continue
+                    
+                # Apply masking
+                self._apply_token_masking(input_ids, start, end)
+                masked_positions.update(new_tokens)
+                used_boundaries.add(idx)
+                second_pass_tokens += len(new_tokens)
+                successful_attempts += 1
+                
+                logger.debug(
+                    f"Second pass masking (attempt {attempts}):\n"
+                    f"- Boundary {idx} (length {length}, overlap {overlap_score})\n"
+                    f"- New tokens: {len(new_tokens)}\n"
+                    f"- Current ratio: {len(masked_positions)/seq_length:.1%}"
+                )
+        
+        # Fallback: Try individual tokens if still under target
+        if len(masked_positions) < target_masked:
+            logger.debug("Using fallback token-level masking")
+            
+            # Sort tokens by overlap count
+            token_items = sorted(
+                token_counts.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )
+            
+            # Try tokens in order of overlap count
+            for token_idx, overlap_count in token_items:
+                if token_idx in masked_positions:
+                    continue
+                    
+                if len(masked_positions) >= target_masked:
+                    break
+                    
+                self._apply_token_masking(input_ids, token_idx, token_idx + 1)
+                masked_positions.add(token_idx)
+                fallback_tokens += 1
+                successful_attempts += 1
+                
+        # Log phase effectiveness
+        total_tokens = len(masked_positions)
+        if total_tokens > 0:
+            logger.debug(
+                f"Phase effectiveness:\n"
+                f"- First pass: {first_pass_tokens} tokens ({first_pass_tokens/total_tokens:.1%})\n"
+                f"- Second pass: {second_pass_tokens} tokens ({second_pass_tokens/total_tokens:.1%})\n"
+                f"- Fallback: {fallback_tokens} tokens ({fallback_tokens/total_tokens:.1%})\n"
+                f"- Success rate: {successful_attempts/attempts:.1%} ({successful_attempts}/{attempts})"
+            )
+            
         # Create labels
         labels = self._create_labels(original_ids, masked_positions)
         
-        # Log statistics
+        # Log final statistics
         num_masked = len(masked_positions)
-        logger.debug(
-            f"Span masking stats:\n"
-            f"- Total tokens: {total_tokens}\n"
-            f"- Target masked: {target_masked}\n"
-            f"- Actually masked: {num_masked}\n"
-            f"- Number of spans: {len(span_positions)}\n"
-            f"- Mask ratio: {num_masked/len(input_ids):.2%}"
+        mask_ratio = num_masked / seq_length
+        logger.info(
+            f"Final masking results:\n"
+            f"- Sequence length: {seq_length}\n"
+            f"- Target tokens: {target_masked} ({self.mask_prob:.1%})\n"
+            f"- Masked tokens: {num_masked}\n"
+            f"- Achieved ratio: {mask_ratio:.1%}\n"
+            f"- Maskable boundaries: {len(maskable_boundaries)}"
         )
+        
+        # Warn if masking ratio is too low
+        if mask_ratio < self.MIN_MASK_PROB:
+            logger.warning(
+                f"Low masking ratio {mask_ratio:.1%} < {self.MIN_MASK_PROB:.1%}\n"
+                f"- Target ratio: {self.mask_prob:.1%}\n"
+                f"- Attempts made: {attempts}\n"
+                f"- Masked tokens: {num_masked}\n"
+                f"- Maskable boundaries: {len(maskable_boundaries)}"
+            )
         
         return input_ids, labels
 

@@ -75,18 +75,26 @@ class EmbeddingDataset(CSVDataset):
         # Get base item from parent class
         item = super().__getitem__(idx)
         
-        # Apply masking with validation check
+        # Apply masking and log details
+        logger.debug(
+            f"Applying masking for index {idx}\n"
+            f"- Input length: {len(item['input_ids'])}\n"
+            f"- Target mask prob: {self.mask_prob:.2%}\n"
+            f"- Max span length: {self.max_span_length}"
+        )
+        
         input_ids, embedding_labels = self._mask_tokens(item, idx)
         
-        # Verify masking ratio
+        # Log masking results
         mask = embedding_labels != -100
         mask_ratio = mask.sum().item() / len(embedding_labels)
-        if mask_ratio < 0.1 or mask_ratio > 0.2:  # Allow some variance around 0.15
-            logger.warning(
-                f"Unusual masking ratio {mask_ratio:.2%} at index {idx}\n"
-                f"- Total tokens: {len(embedding_labels)}\n"
-                f"- Masked tokens: {mask.sum().item()}"
-            )
+        logger.info(
+            f"Masking results for index {idx}:\n"
+            f"- Mask ratio achieved: {mask_ratio:.2%}\n"
+            f"- Total tokens: {len(embedding_labels)}\n"
+            f"- Masked tokens: {mask.sum().item()}\n"
+            f"- Sequence length: {len(item['input_ids'])}"
+        )
         
         item['input_ids'] = input_ids
         item['labels'] = embedding_labels

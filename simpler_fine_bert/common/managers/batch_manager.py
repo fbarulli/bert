@@ -41,10 +41,12 @@ class BatchManager(BaseManager):
                 cuda_manager = get_cuda_manager()
                 device = cuda_manager.get_device()
                 
-            # Move each tensor to device
+            # Filter out masking-specific fields and move remaining tensors to device
+            model_fields = {'input_ids', 'attention_mask', 'token_type_ids', 'position_ids', 'labels'}
             return {
                 k: v.to(device=device) if isinstance(v, torch.Tensor) else v
                 for k, v in batch.items()
+                if k in model_fields
             }
             
         except Exception as e:

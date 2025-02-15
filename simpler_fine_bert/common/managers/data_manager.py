@@ -95,12 +95,20 @@ class DataManager(BaseManager):
                 
             tokenizer = self.get_tokenizer(config)
             
+            # Extract masking parameters from config with defaults
+            mask_prob = config['data'].get('mask_prob', 0.15)
+            max_predictions = config['data'].get('max_predictions', 20)
+            max_span_length = config['data'].get('max_span_length', 1)
+            
             dataset = EmbeddingDataset(
                 data_path=Path(config['data']['csv_path']),
                 tokenizer=tokenizer,
                 split=split,
                 train_ratio=float(config['data']['train_ratio']),
-                max_length=config['data']['max_length']
+                max_length=config['data']['max_length'],
+                mask_prob=mask_prob,
+                max_predictions=max_predictions,
+                max_span_length=max_span_length
             )
             
             logger.debug(f"Created {split} dataset with {len(dataset)} examples")
