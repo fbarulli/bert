@@ -26,18 +26,9 @@ from simpler_fine_bert.common.managers import get_optuna_manager
 
 from simpler_fine_bert.common.config_utils import load_config
 
-from simpler_fine_bert.common.managers import get_cuda_manager
-
-# Get manager instance
-cuda_manager = get_cuda_manager()
-from simpler_fine_bert.common.managers import (
-    get_dataloader_manager,
-    get_resource_manager
-)
-
-# Get manager instances
-dataloader_manager = get_dataloader_manager()
-resource_manager = get_resource_manager()
+from simpler_fine_bert.common import get_cuda_manager
+from simpler_fine_bert.common.data_manager import dataloader_manager
+from simpler_fine_bert.common.resource_manager import resource_manager
 from simpler_fine_bert.classification.classification_trainer import ClassificationTrainer
 
 def get_classification_model():

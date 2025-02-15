@@ -28,7 +28,11 @@ class TensorManager(BaseManager):
             
             # Verify CUDA is initialized
             if not cuda_manager.is_initialized():
-                raise RuntimeError("CUDA must be initialized before TensorManager")
+                raise RuntimeError(
+                    "CUDA must be initialized before TensorManager. "
+                    "Ensure ResourceInitializer.initialize_process() is called first "
+                    "in initialize_managers() before accessing tensor_manager."
+                )
                 
             self._local.device = None
             logger.info(f"TensorManager initialized for process {self._local.pid}")

@@ -5,12 +5,9 @@ from typing import Dict, Any, Optional
 import optuna
 import torch
 
-from simpler_fine_bert.common.managers import (
-    get_data_manager,
-    get_model_manager,
-    get_cuda_manager,
-    get_optuna_manager
-)
+from simpler_fine_bert.data_manager import data_manager
+from simpler_fine_bert.model_manager import model_manager
+from simpler_fine_bert.common import get_cuda_manager
 from simpler_fine_bert.embedding import EmbeddingTrainer
 from simpler_fine_bert.common.utils import create_optimizer
 

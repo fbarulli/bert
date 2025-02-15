@@ -8,7 +8,7 @@ import traceback  # for error handling
 from typing import Dict, List, Tuple, Optional, Union, Any
 import numpy.typing as npt
 
-from simpler_fine_bert.common.managers import get_cuda_manager, get_tensor_manager
+from simpler_fine_bert.common import get_cuda_manager, get_tensor_manager
 
 # Configure logging
 logging.basicConfig(

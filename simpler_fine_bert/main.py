@@ -127,6 +127,11 @@ def initialize_managers(config: Dict[str, Any]) -> None:
         worker_manager.n_jobs = config['training']['n_jobs']
         storage_manager.storage_dir = Path(config['output']['dir']) / 'storage'
         
+        # Initialize tensor manager after CUDA setup
+        from simpler_fine_bert.common import get_tensor_manager
+        tensor_manager = get_tensor_manager()
+        tensor_manager._initialize_process_local(config)
+        
         logger.info("All managers initialized with config")
         
     except Exception as e:
