@@ -1,14 +1,13 @@
-from __future__ import annotations
-
-import logging
-from pathlib import Path
-from typing import Dict, Tuple
 import torch
+import random
+import logging
+from typing import Tuple, Optional, List, Set, Dict
 from transformers import PreTrainedTokenizerFast
-import os
 
-from simpler_fine_bert.common.data import CSVDataset
-from simpler_fine_bert.embedding.masking import SpanMaskingModule
+from simpler_fine_bert.common.managers import (
+    get_tensor_manager,
+    get_tokenizer_manager
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +75,7 @@ class EmbeddingDataset(CSVDataset):
         item = super().__getitem__(idx)
         
         # Apply masking and log details
+        
         logger.debug(
             f"Applying masking for index {idx}\n"
             f"- Input length: {len(item['input_ids'])}\n"
@@ -88,13 +88,14 @@ class EmbeddingDataset(CSVDataset):
         # Log masking results
         mask = embedding_labels != -100
         mask_ratio = mask.sum().item() / len(embedding_labels)
+        '''
         logger.info(
             f"Masking results for index {idx}:\n"
             f"- Mask ratio achieved: {mask_ratio:.2%}\n"
             f"- Total tokens: {len(embedding_labels)}\n"
             f"- Masked tokens: {mask.sum().item()}\n"
             f"- Sequence length: {len(item['input_ids'])}"
-        )
+        )'''
         
         item['input_ids'] = input_ids
         item['labels'] = embedding_labels

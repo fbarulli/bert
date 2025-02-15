@@ -150,17 +150,28 @@ def main():
     try:
         logger.info(f"Main Process ID: {os.getpid()}")
         logger.info("Loading configuration...")
-        
+
         config = load_config("config_embedding.yaml")
         logger.info("Configuration loaded successfully")
-        
+
         # Initialize all managers
         initialize_managers(config)
-        
-        logger.info("\n=== Starting Training ===")
+
+        # --- INSERT DEBUG CHECK HERE (USING logger.debug) ---
+        masking_logger = logging.getLogger("simpler_fine_bert.embedding.masking")
+        print(f"DEBUG CHECK: Masking Logger Level: {logging.getLevelName(masking_logger.level)}") # Changed to logger.debug
+        # ------------------------------
+
+        # --- FORCE DEBUG LEVEL ON MASKING LOGGER ---
+        masking_logger.setLevel(logging.DEBUG)
+        print(f"DEBUG CHECK (AFTER SETLEVEL): Masking Logger Level: {logging.getLevelName(masking_logger.level)}") # Added another debug print to confirm
+        # -----------------------------------------
+
+        logger.info("\n=== Starting Training ===")  # <--- DEBUG LINES SHOULD BE *ABOVE* THIS LINE
+
         train_model(config)
         logger.info("Training completed successfully")
-        
+
     except Exception as e:
         logger.error(f"Training failed: {str(e)}")
         logger.error(f"Traceback:\n{traceback.format_exc()}")
@@ -168,8 +179,3 @@ def main():
     finally:
         logger.info("Cleaning up resources...")
         cleanup_resources()
-
-if __name__ == '__main__':
-    # Setup logging first for visibility
-    setup_logging()
-    main()

@@ -38,7 +38,7 @@ def setup_logging(
     
     # Configure logging
     logging.basicConfig(
-        level=numeric_level,
+        level=logging.DEBUG,
         format=format,
         handlers=[
             logging.StreamHandler(),
@@ -47,7 +47,7 @@ def setup_logging(
     )
     
     # Add colored logs for terminal
-    coloredlogs.install(level=numeric_level)
+    coloredlogs.install(level=logging.DEBUG)
     
     # Log the level being used
     logger.info(f"Logging level set to: {level}")

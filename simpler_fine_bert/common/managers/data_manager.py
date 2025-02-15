@@ -96,9 +96,9 @@ class DataManager(BaseManager):
             tokenizer = self.get_tokenizer(config)
             
             # Extract masking parameters from config with defaults
-            mask_prob = config['data'].get('mask_prob', 0.15)
-            max_predictions = config['data'].get('max_predictions', 20)
-            max_span_length = config['data'].get('max_span_length', 1)
+            mask_prob = config['data']
+            max_predictions = config['data']
+            max_span_length = config['data']
             
             dataset = EmbeddingDataset(
                 data_path=Path(config['data']['csv_path']),
