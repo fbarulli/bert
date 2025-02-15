@@ -33,11 +33,15 @@ def process_batch_parallel(tokenizer: PreTrainedTokenizerFast, texts: List[str],
             max_length=max_length,
             padding='max_length',
             truncation=True,
-            return_tensors='np'  # Return numpy arrays directly
+            return_tensors='np',  # Return numpy arrays directly
+            return_special_tokens_mask=True,  # Get special tokens mask
+            return_offsets_mapping=True  # Get word IDs via offsets
         )
         return {
             'input_ids': encoding['input_ids'].squeeze(0),
-            'attention_mask': encoding['attention_mask'].squeeze(0)
+            'attention_mask': encoding['attention_mask'].squeeze(0),
+            'special_tokens_mask': encoding['special_tokens_mask'].squeeze(0),
+            'word_ids': np.array([-1 if not span else i for i, span in enumerate(encoding['offset_mapping'].squeeze(0))], dtype=np.int64)
         }
     
     with ThreadPoolExecutor(max_workers=4) as executor:
@@ -46,7 +50,9 @@ def process_batch_parallel(tokenizer: PreTrainedTokenizerFast, texts: List[str],
     # Stack results
     return {
         'input_ids': np.stack([e['input_ids'] for e in encodings]),
-        'attention_mask': np.stack([e['attention_mask'] for e in encodings])
+        'attention_mask': np.stack([e['attention_mask'] for e in encodings]),
+        'special_tokens_mask': np.stack([e['special_tokens_mask'] for e in encodings]),
+        'word_ids': np.stack([e['word_ids'] for e in encodings])
     }
 
 class CSVDataset(Dataset):
@@ -153,6 +159,8 @@ class CSVDataset(Dataset):
             
             self.input_ids = create_memmap_array(f"{self.cache_prefix}_input_ids.npy", input_shape, dtype=np.int64)
             self.attention_mask = create_memmap_array(f"{self.cache_prefix}_attention_mask.npy", input_shape, dtype=np.int64)
+            self.special_tokens_mask = create_memmap_array(f"{self.cache_prefix}_special_tokens_mask.npy", input_shape, dtype=np.int64)
+            self.word_ids = create_memmap_array(f"{self.cache_prefix}_word_ids.npy", input_shape, dtype=np.int64)
             self.labels = create_memmap_array(f"{self.cache_prefix}_labels.npy", labels_shape, dtype=np.int64)
             
             # Process in batches using parallel processing
@@ -163,6 +171,8 @@ class CSVDataset(Dataset):
                 # Store in memmap arrays
                 self.input_ids[i:i + len(batch_texts)] = encodings['input_ids']
                 self.attention_mask[i:i + len(batch_texts)] = encodings['attention_mask']
+                self.special_tokens_mask[i:i + len(batch_texts)] = encodings['special_tokens_mask']
+                self.word_ids[i:i + len(batch_texts)] = encodings['word_ids']
                 self.labels[i:i + len(batch_texts)] = labels[i:i + len(batch_texts)]
                 
                 # Force memory cleanup
@@ -184,6 +194,8 @@ class CSVDataset(Dataset):
             # Load arrays with their shapes
             self.input_ids = load_memmap_array(f"{self.cache_prefix}_input_ids.npy", shapes['input_ids'], dtype=np.int64)
             self.attention_mask = load_memmap_array(f"{self.cache_prefix}_attention_mask.npy", shapes['attention_mask'], dtype=np.int64)
+            self.special_tokens_mask = load_memmap_array(f"{self.cache_prefix}_special_tokens_mask.npy", shapes['attention_mask'], dtype=np.int64)
+            self.word_ids = load_memmap_array(f"{self.cache_prefix}_word_ids.npy", shapes['attention_mask'], dtype=np.int64)
             self.labels = load_memmap_array(f"{self.cache_prefix}_labels.npy", shapes['labels'], dtype=np.int64)
             self.total_rows = shapes['input_ids'][0]  # First dimension is number of rows
             
@@ -206,7 +218,9 @@ class CSVDataset(Dataset):
         # Create tensors on CPU with pinned memory
         item = {
             'input_ids': tensor_manager.create_cpu_tensor(self.input_ids[idx], dtype=torch.long),
-            'attention_mask': tensor_manager.create_cpu_tensor(self.attention_mask[idx], dtype=torch.long)
+            'attention_mask': tensor_manager.create_cpu_tensor(self.attention_mask[idx], dtype=torch.long),
+            'special_tokens_mask': tensor_manager.create_cpu_tensor(self.special_tokens_mask[idx], dtype=torch.long),
+            'word_ids': tensor_manager.create_cpu_tensor(self.word_ids[idx], dtype=torch.long)
         }
         
         if self.labels[idx] != -1:  # If we have a valid label

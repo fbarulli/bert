@@ -291,15 +291,20 @@ class BaseTrainer:
             else:
                 raise ValueError(f"Unexpected output type: {type(outputs)}")
             
-            self.backward_step(loss, optimizer)
+            # Scale loss for gradient accumulation
+            scaled_loss = loss / self.gradient_accumulation
+            self.backward_step(scaled_loss, optimizer)
             
+            # Update optimizer if we've accumulated enough gradients
             self.accumulation_step = (self.accumulation_step + 1) % self.gradient_accumulation
+            if self.accumulation_step == 0:
+                optimizer.step()
+                optimizer.zero_grad()
             
+            # Compute metrics using raw loss
             metrics = self.compute_metrics(outputs, device_batch)
-            metrics['loss'] = loss.item() * self.gradient_accumulation
-            
-            current_lr = optimizer.param_groups[0]['lr']
-            metrics['learning_rate'] = current_lr
+            metrics['loss'] = loss.item()  # Use raw loss for logging
+            metrics['learning_rate'] = optimizer.param_groups[0]['lr']
             
             return metrics
             

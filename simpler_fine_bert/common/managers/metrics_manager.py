@@ -24,8 +24,10 @@ class MetricsManager(BaseManager):
         
         # Initialize cuda_manager first since we depend on it
         cuda_manager.ensure_initialized()
+        
         self._local.device = None
         self._local.loss_fct = None
+        self._local.pad_token_id = 0  # Default BERT pad token ID
     
     def get_device(self) -> torch.device:
         """Get current device."""
@@ -42,7 +44,7 @@ class MetricsManager(BaseManager):
         """Get or create loss function."""
         self.ensure_initialized()
         if self._local.loss_fct is None:
-            self._local.loss_fct = nn.CrossEntropyLoss(ignore_index=-100).to(self.get_device())
+            self._local.loss_fct = nn.CrossEntropyLoss(ignore_index=-100, reduction='sum').to(self.get_device())
         return self._local.loss_fct
     
     def compute_accuracy(
@@ -115,71 +117,113 @@ class MetricsManager(BaseManager):
             # Get logits and labels
             logits = outputs['logits']  # [batch_size, seq_len, vocab_size]
             labels = batch['labels']  # [batch_size, seq_len]
+            input_ids = batch['input_ids']  # Original input IDs
             
-            # Calculate loss on masked tokens only
-            loss = self.get_loss_fct()(logits.view(-1, logits.size(-1)), labels.view(-1))
+            # Get masked positions
+            mask = labels != -100
+            total_masked = mask.sum().item()
+            total_tokens = labels.numel()
             
-            # Get predictions and compute accuracy
-            predictions = logits.argmax(dim=-1)  # [batch_size, seq_len]
-            mask = labels != -100  # [batch_size, seq_len]
+            if total_masked == 0:
+                logger.warning("No masked tokens found in batch")
+                return {
+                    'loss': 0.0,
+                    'embedding_loss': 0.0,
+                    'ppl': 1.0,
+                    'accuracy': 0.0,
+                    'top5_accuracy': 0.0,
+                    'mask_ratio': 0.0
+                }
             
-            # Compute accuracy only on masked tokens
-            correct = (predictions[mask] == labels[mask]).float().sum()
-            total = mask.sum()
-            accuracy = (correct / total).item() if total > 0 else 0.0
+            # Reshape logits and labels for loss calculation
+            logits_view = logits.view(-1, logits.size(-1))  # [batch_size * seq_len, vocab_size]
+            labels_view = labels.view(-1)  # [batch_size * seq_len]
             
-            # Compute top-k accuracy
-            _, top_k = logits.topk(5, dim=-1)  # [batch_size, seq_len, 5]
-            correct_k = labels.unsqueeze(-1).expand_as(top_k) == top_k
-            correct_k = correct_k & mask.unsqueeze(-1)
-            top5_accuracy = (correct_k.any(dim=-1).float().sum() / total).item() if total > 0 else 0.0
+            # Calculate loss only on masked tokens (CrossEntropyLoss already handles -100)
+            loss = self.get_loss_fct()(logits_view, labels_view)
             
-            # Log detailed stats for debugging
-            logger.debug(
-                f"Metrics Stats:\n"
-                f"- Total tokens: {labels.numel()}\n"
-                f"- Masked tokens: {total.item()}\n"
-                f"- Correct predictions: {correct.item()}\n"
-                f"- Raw loss: {loss.item():.4f}\n"
-                f"- Accuracy: {accuracy:.4%}\n"
-                f"- Top-5 Accuracy: {top5_accuracy:.4%}"
-            )
+            # Get number of valid predictions (not -100)
+            valid_predictions = (labels_view != -100).sum().item()
+            if valid_predictions == 0:
+                logger.warning("No valid predictions found in batch")
+                return {
+                    'loss': 0.0,
+                    'embedding_loss': 0.0,
+                    'ppl': 1.0,
+                    'accuracy': 0.0,
+                    'top5_accuracy': 0.0,
+                    'mask_ratio': 0.0
+                }
             
-            # Calculate perplexity
+            # Normalize loss by number of valid predictions
+            normalized_loss = loss / valid_predictions
+            
+            # Get predictions
+            predictions = logits_view.argmax(dim=-1)  # [batch_size * seq_len]
+            
+            # Compute accuracy only on valid positions (not -100)
+            valid_mask = labels_view != -100
+            if valid_mask.any():
+                correct = (predictions[valid_mask] == labels_view[valid_mask]).float().sum()
+                accuracy = (correct / valid_mask.sum()).item()
+            else:
+                accuracy = 0.0
+            
+            # Compute top-5 accuracy on valid positions
+            _, top_k = logits_view.topk(5, dim=-1)  # [batch_size * seq_len, 5]
+            correct_k = top_k.eq(labels_view.unsqueeze(-1).expand_as(top_k))
+            
+            # Only consider valid positions
+            correct_k = correct_k & valid_mask.unsqueeze(-1)
+            top5_accuracy = correct_k.any(dim=-1).float().sum().item() / valid_mask.sum().item()
+            
+            # Calculate perplexity from normalized loss
             try:
-                ppl = math.exp(loss.item())
-                logger.debug(f"Calculated perplexity: exp({loss.item()}) = {ppl:.2f}")
+                ppl = math.exp(normalized_loss.item())
+                logger.debug(f"Calculated perplexity: exp({normalized_loss.item()}) = {ppl:.2f}")
             except OverflowError:
-                logger.warning(f"Overflow computing perplexity for loss {loss.item()}")
+                logger.warning(f"Overflow computing perplexity for loss {normalized_loss.item()}")
                 ppl = float('inf')
             
             metrics = {
-                'loss': loss.item(),
-                'embedding_loss': loss.item(),
-                'ppl': ppl,  # Use consistent key name
+                'loss': normalized_loss.item(),
+                'embedding_loss': normalized_loss.item(),
+                'ppl': ppl,
                 'accuracy': accuracy,
-                'top5_accuracy': top5_accuracy
+                'top5_accuracy': top5_accuracy,
+                'unmasked_accuracy': 0.0,  # Removed unmasked accuracy since we only care about masked tokens
+                'mask_ratio': total_masked / total_tokens
             }
             
             logger.debug(
                 f"Embedding Metrics:\n"
-                f"- Loss: {metrics['loss']:.4f}\n"
-                f"- Perplexity: {metrics['ppl']:.2f}\n"
-                f"- Accuracy: {metrics['accuracy']:.4f}\n"
-                f"- Top-5 Accuracy: {metrics['top5_accuracy']:.4f}"
+                f"- Total tokens: {total_tokens}\n"
+                f"- Masked tokens: {total_masked}\n"
+                f"- Mask ratio: {metrics['mask_ratio']:.2%}\n"
+                f"- Raw loss: {loss.item():.4f}\n"
+                f"- Normalized loss: {normalized_loss.item():.4f}\n"
+                f"- Perplexity: {ppl:.2f}\n"
+                f"- Masked accuracy: {accuracy:.4%}\n"
+                f"- Top-5 Accuracy: {top5_accuracy:.4%}"
             )
             
             return metrics
             
         except Exception as e:
             logger.error(f"Error computing embedding metrics: {str(e)}")
+            logger.error(f"Output type: {type(outputs)}")
+            logger.error(f"Output keys: {outputs.keys() if isinstance(outputs, dict) else 'Not a dict'}")
+            logger.error(f"Batch type: {type(batch)}")
+            logger.error(f"Batch keys: {batch.keys() if isinstance(batch, dict) else 'Not a dict'}")
             # Return default metrics in case of error
             return {
                 'loss': float('inf'),
                 'embedding_loss': float('inf'),
                 'ppl': float('inf'),
                 'accuracy': 0.0,
-                'top5_accuracy': 0.0
+                'top5_accuracy': 0.0,
+                'unmasked_accuracy': 0.0,
+                'mask_ratio': 0.0
             }
     
     def compute_classification_metrics(

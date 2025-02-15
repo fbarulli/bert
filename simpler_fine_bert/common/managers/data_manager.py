@@ -13,18 +13,18 @@ from torch.utils.data.dataloader import default_collate
 import threading
 
 from simpler_fine_bert.common.managers.base_manager import BaseManager
-from simpler_fine_bert.common.managers import get_dataloader_manager
+from simpler_fine_bert.common.managers import (
+    get_dataloader_manager,
+    get_tokenizer_manager
+)
 from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
 
-# Get manager instance
+# Get manager instances
 dataloader_manager = get_dataloader_manager()
+tokenizer_manager = get_tokenizer_manager()
+
 from simpler_fine_bert.embedding.dataset import EmbeddingDataset
 from simpler_fine_bert.classification.dataset import CSVDataset
-
-def get_tokenizer_manager():
-    """Get tokenizer manager instance at runtime to avoid circular imports."""
-    from simpler_fine_bert.common.managers import get_tokenizer_manager
-    return get_tokenizer_manager()
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class DataManager(BaseManager):
         """
         try:
             worker_id = os.getpid()
-            tokenizer = get_tokenizer_manager().get_worker_tokenizer(
+            tokenizer = tokenizer_manager.get_worker_tokenizer(
                 worker_id=worker_id,
                 model_name=config['model']['name'],
                 model_type=config['model']

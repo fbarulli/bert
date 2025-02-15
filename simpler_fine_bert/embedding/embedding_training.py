@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, Any, Optional
 import torch
+from pathlib import Path
 from torch.utils.data import DataLoader
 from simpler_fine_bert.common.managers import get_wandb_manager
 from simpler_fine_bert.common.utils import measure_memory, clear_memory
@@ -50,10 +51,16 @@ def train_embeddings(
         num_epochs = config['training']['num_epochs']
         trainer.train(num_epochs)
         
-        # Plot best trial metrics
-        from simpler_fine_bert.common.study.trial_analyzer import TrialAnalyzer
-        analyzer = TrialAnalyzer(Path(metrics_dir) if metrics_dir else Path.cwd())
-        analyzer.plot_trial_curves([trial] if trial else [], "Embedding Training")
+        # Plot best trial metrics if we have a trial
+        if trial:
+            try:
+                from simpler_fine_bert.common.study.trial_analyzer import TrialAnalyzer
+                metrics_path = Path(metrics_dir) if metrics_dir else Path.cwd() / 'metrics'
+                metrics_path.mkdir(parents=True, exist_ok=True)
+                analyzer = TrialAnalyzer(metrics_path)
+                analyzer.plot_trial_curves([trial], "Embedding Training")
+            except Exception as e:
+                logger.warning(f"Failed to plot trial metrics: {str(e)}")
         
         # Clean up resources
         trainer.cleanup_memory(aggressive=True)

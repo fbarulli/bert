@@ -241,44 +241,40 @@ class TrialAnalyzer:
         # Plot metrics from best trial
         metrics = best_trial.user_attrs.get('epoch_metrics', [])
         if metrics:
-            epochs = range(len(metrics))
-            
-            plt.figure(figsize=(15, 10))
-            
-            # Plot loss
-            plt.subplot(2, 2, 1)
-            plt.plot(epochs, [m['train']['loss'] for m in metrics], 'b-', label='Train')
-            plt.plot(epochs, [m['validation']['loss'] for m in metrics], 'r-', label='Val')
-            plt.title('Loss', fontsize=12)
-            plt.xlabel('Epoch')
-            plt.ylabel('Loss')
-            plt.legend()
-            plt.grid(True, alpha=0.3)
-            
-            # Plot accuracy
-            plt.subplot(2, 2, 2)
-            plt.plot(epochs, [m['train']['accuracy'] for m in metrics], 'b-', label='Train')
-            plt.plot(epochs, [m['validation']['accuracy'] for m in metrics], 'r-', label='Val')
-            plt.title('Accuracy', fontsize=12)
-            plt.xlabel('Epoch')
-            plt.ylabel('Accuracy')
-            plt.legend()
-            plt.grid(True, alpha=0.3)
-            
-            # Plot perplexity
-            plt.subplot(2, 2, 3)
-            plt.plot(epochs, [m['train']['perplexity'] for m in metrics], 'b-', label='Train')
-            plt.plot(epochs, [m['validation']['perplexity'] for m in metrics], 'r-', label='Val')
-            plt.title('Perplexity', fontsize=12)
-            plt.xlabel('Epoch')
-            plt.ylabel('Perplexity')
-            plt.legend()
-            plt.grid(True, alpha=0.3)
-            
-            plt.suptitle(f"{title} - Best Trial (#{best_trial.number}) Metrics", fontsize=14, y=1.02)
-            plt.tight_layout()
-            plt.savefig(vis_dir / 'best_trial_metrics.png', bbox_inches='tight')
-            plt.close()
+            try:
+                epochs = range(len(metrics))
+                plt.figure(figsize=(15, 10))
+                
+                # Plot metrics that exist
+                plot_idx = 1
+                for metric_name in ['loss', 'accuracy', 'perplexity']:
+                    try:
+                        train_values = [m.get('train', {}).get(metric_name) for m in metrics]
+                        val_values = [m.get('validation', {}).get(metric_name) for m in metrics]
+                        
+                        # Only plot if we have valid values
+                        if any(v is not None for v in train_values + val_values):
+                            plt.subplot(2, 2, plot_idx)
+                            if any(v is not None for v in train_values):
+                                plt.plot(epochs, train_values, 'b-', label='Train')
+                            if any(v is not None for v in val_values):
+                                plt.plot(epochs, val_values, 'r-', label='Val')
+                            plt.title(metric_name.capitalize(), fontsize=12)
+                            plt.xlabel('Epoch')
+                            plt.ylabel(metric_name.capitalize())
+                            plt.legend()
+                            plt.grid(True, alpha=0.3)
+                            plot_idx += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to plot {metric_name}: {str(e)}")
+                        continue
+                
+                plt.suptitle(f"{title} - Best Trial (#{best_trial.number}) Metrics", fontsize=14, y=1.02)
+                plt.tight_layout()
+                plt.savefig(vis_dir / 'best_trial_metrics.png', bbox_inches='tight')
+                plt.close()
+            except Exception as e:
+                logger.warning(f"Failed to plot trial metrics: {str(e)}")
             
         # Plot loss curve across all trials
         plt.figure(figsize=(12, 6))

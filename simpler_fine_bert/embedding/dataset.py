@@ -45,21 +45,21 @@ class EmbeddingDataset(CSVDataset):
             worker_id=os.getpid()
         )
     
-    def _mask_tokens(self, inputs: torch.Tensor, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _mask_tokens(self, item: Dict[str, torch.Tensor], idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """Apply masking using the SpanMaskingModule.
         
         Args:
-            inputs: Input tensor on CPU [seq_len]
+            item: Dictionary containing input tensors
             idx: Index into the dataset
             
         Returns:
             Tuple of (masked inputs, labels) both of shape [seq_len]
         """
-        if inputs.dim() != 1:
-            raise ValueError(f"Expected 1D input tensor, got shape: {inputs.shape}")
+        if item['input_ids'].dim() != 1:
+            raise ValueError(f"Expected 1D input tensor, got shape: {item['input_ids'].shape}")
             
         # Apply masking using the module (returns CPU tensors)
-        masked_inputs, labels = self.masking_module(inputs)
+        masked_inputs, labels = self.masking_module(item)
         
         return masked_inputs, labels
     
@@ -75,10 +75,21 @@ class EmbeddingDataset(CSVDataset):
         # Get base item from parent class
         item = super().__getitem__(idx)
         
-        # Always apply masking for embedding dataset
-        input_ids, embedding_labels = self._mask_tokens(item['input_ids'], idx)
+        # Apply masking with validation check
+        input_ids, embedding_labels = self._mask_tokens(item, idx)
+        
+        # Verify masking ratio
+        mask = embedding_labels != -100
+        mask_ratio = mask.sum().item() / len(embedding_labels)
+        if mask_ratio < 0.1 or mask_ratio > 0.2:  # Allow some variance around 0.15
+            logger.warning(
+                f"Unusual masking ratio {mask_ratio:.2%} at index {idx}\n"
+                f"- Total tokens: {len(embedding_labels)}\n"
+                f"- Masked tokens: {mask.sum().item()}"
+            )
+        
         item['input_ids'] = input_ids
-        item['labels'] = embedding_labels  # Use 'labels' for consistency
+        item['labels'] = embedding_labels
         
         return item
 

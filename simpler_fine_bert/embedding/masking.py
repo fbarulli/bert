@@ -1,7 +1,7 @@
 import torch
 import random
 import logging
-from typing import Tuple, Optional, List, Set
+from typing import Tuple, Optional, List, Set, Dict
 from transformers import PreTrainedTokenizerFast
 
 from simpler_fine_bert.common.managers import (
@@ -186,15 +186,22 @@ class MaskingModule:
 class WholeWordMaskingModule(MaskingModule):
     """Whole word masking following BERT paper."""
     
-    def __call__(self, input_ids: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __call__(self, batch: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         """Apply whole word masking to input tokens.
         
         Args:
-            input_ids: Input token IDs [seq_len]
+            batch: Dictionary containing:
+                - input_ids: Input token IDs [seq_len]
+                - word_ids: Word IDs for tokens [seq_len]
+                - special_tokens_mask: Special tokens mask [seq_len]
             
         Returns:
             Tuple of (masked_input_ids, labels)
         """
+        input_ids = batch['input_ids']
+        word_ids = batch['word_ids']
+        special_tokens_mask = batch['special_tokens_mask']
+        
         if input_ids.dim() != 1:
             raise ValueError(f"Expected 1D input tensor, got shape: {input_ids.shape}")
             
@@ -202,23 +209,12 @@ class WholeWordMaskingModule(MaskingModule):
         input_ids = tensor_manager.create_cpu_tensor(input_ids.clone(), dtype=torch.long)
         original_ids = input_ids.clone()
         
-        # Get word IDs from tokenizer
-        text = self.tokenizer.decode(input_ids.tolist(), skip_special_tokens=False)
-        encoding = self.tokenizer(
-            text,
-            add_special_tokens=False,
-            padding=False,
-            truncation=False,
-            return_tensors=None
-        )
-        word_ids = encoding.word_ids()
+        # Get word boundaries using word IDs and special tokens mask
+        word_ids_list = [None if id == -1 or mask == 1 else id for id, mask in zip(word_ids.tolist(), special_tokens_mask.tolist())]
         
-        if word_ids is None:
-            raise RuntimeError("Failed to get word IDs from tokenizer")
-            
-        # Get word boundaries
-        word_boundaries = self._get_word_boundaries(input_ids, word_ids)
-        maskable_boundaries = self._get_maskable_boundaries(word_boundaries, word_ids)
+        # Get word boundaries using existing word IDs
+        word_boundaries = self._get_word_boundaries(input_ids, word_ids_list)
+        maskable_boundaries = self._get_maskable_boundaries(word_boundaries, word_ids_list)
         
         if not maskable_boundaries:
             logger.warning("No maskable word boundaries found")
@@ -290,15 +286,22 @@ class SpanMaskingModule(MaskingModule):
         
         logger.debug(f"Using max span length: {self.max_span_length}")
     
-    def __call__(self, input_ids: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __call__(self, batch: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
         """Apply span masking to input tokens.
         
         Args:
-            input_ids: Input token IDs [seq_len]
+            batch: Dictionary containing:
+                - input_ids: Input token IDs [seq_len]
+                - word_ids: Word IDs for tokens [seq_len]
+                - special_tokens_mask: Special tokens mask [seq_len]
             
         Returns:
             Tuple of (masked_input_ids, labels)
         """
+        input_ids = batch['input_ids']
+        word_ids = batch['word_ids']
+        special_tokens_mask = batch['special_tokens_mask']
+        
         if input_ids.dim() != 1:
             raise ValueError(f"Expected 1D input tensor, got shape: {input_ids.shape}")
             
@@ -306,36 +309,32 @@ class SpanMaskingModule(MaskingModule):
         input_ids = tensor_manager.create_cpu_tensor(input_ids.clone(), dtype=torch.long)
         original_ids = input_ids.clone()
         
-        # Get word IDs from tokenizer
-        text = self.tokenizer.decode(input_ids.tolist(), skip_special_tokens=False)
-        encoding = self.tokenizer(
-            text,
-            add_special_tokens=False,
-            padding=False,
-            truncation=False,
-            return_tensors=None
-        )
-        word_ids = encoding.word_ids()
+        # Get word boundaries using word IDs and special tokens mask
+        word_ids_list = [None if id == -1 or mask == 1 else id for id, mask in zip(word_ids.tolist(), special_tokens_mask.tolist())]
         
-        if word_ids is None:
-            raise RuntimeError("Failed to get word IDs from tokenizer")
-            
-        # Get word boundaries
-        word_boundaries = self._get_word_boundaries(input_ids, word_ids)
+        # Get word boundaries using existing word IDs
+        word_boundaries = self._get_word_boundaries(input_ids, word_ids_list)
         maskable_boundaries = self._get_maskable_boundaries(
             word_boundaries,
-            word_ids,
+            word_ids_list,
             self.max_span_length
         )
         
         if not maskable_boundaries:
             logger.warning("No maskable word boundaries found")
             return input_ids, torch.full_like(input_ids, -100)
-            
-        # Calculate number of spans needed
+        
+        # Calculate target number of tokens to mask (15% of total)
         total_tokens = sum(end - start for start, end in maskable_boundaries)
-        target_masked = int(total_tokens * self.mask_prob)
-        num_spans = max(1, (target_masked + self.max_span_length - 1) // self.max_span_length)
+        target_masked = int(total_tokens * self.mask_prob)  # Always mask 15%
+        
+        # Calculate number of spans needed for target
+        avg_span_length = (1 + self.max_span_length) / 2  # Expected span length
+        num_spans = min(
+            int(target_masked / avg_span_length + 0.5),  # Round up spans needed
+            len(maskable_boundaries)  # Don't exceed available boundaries
+        )
+        num_spans = max(1, num_spans)  # At least one span
         
         # Select span positions
         span_positions = []

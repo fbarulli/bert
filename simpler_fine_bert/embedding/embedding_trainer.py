@@ -64,9 +64,9 @@ class EmbeddingTrainer(get_base_trainer()):
         current_batch_size = config['training']['batch_size']
         effective_batch_size = current_batch_size * config['training']['gradient_accumulation_steps']
         
-        # Use sqrt scaling for learning rate
+        # Use linear scaling for learning rate (BERT paper)
         if effective_batch_size != base_batch_size:
-            scale_factor = (effective_batch_size / base_batch_size) ** 0.5
+            scale_factor = effective_batch_size / base_batch_size
             config['training']['learning_rate'] *= scale_factor
             logger.info(
                 f"Scaled learning rate by {scale_factor:.3f} "
