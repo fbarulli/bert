@@ -4,6 +4,7 @@ import logging
 import torch
 from typing import Dict, Any, Optional
 from torch.utils.data import DataLoader
+from transformers import get_linear_schedule_with_warmup
 from simpler_fine_bert.common.managers import get_metrics_manager
 
 # Get manager instance
@@ -57,42 +58,69 @@ class EmbeddingTrainer(get_base_trainer()):
             val_dataset=val_dataset
         )
         self.best_embedding_loss = float('inf')
+        self.best_val_acc = 0.0
+        # Create optimizer with scaled learning rate
+        base_batch_size = 32  # Standard BERT batch size
+        current_batch_size = config['training']['batch_size']
+        effective_batch_size = current_batch_size * config['training']['gradient_accumulation_steps']
+        
+        # Use sqrt scaling for learning rate
+        if effective_batch_size != base_batch_size:
+            scale_factor = (effective_batch_size / base_batch_size) ** 0.5
+            config['training']['learning_rate'] *= scale_factor
+            logger.info(
+                f"Scaled learning rate by {scale_factor:.3f} "
+                f"(batch_size={current_batch_size}, "
+                f"grad_accum={config['training']['gradient_accumulation_steps']}, "
+                f"effective_batch={effective_batch_size})"
+            )
+        
         # Create optimizer
         self._optimizer = self.create_optimizer()
         
-        # Scale learning rate based on batch size
-        base_batch_size = 32  # Standard BERT batch size
-        current_batch_size = config['training']['batch_size']
-        if current_batch_size != base_batch_size:
-            scale_factor = current_batch_size / base_batch_size
-            for param_group in self._optimizer.param_groups:
-                param_group['lr'] *= scale_factor
-            logger.info(f"Scaled learning rate by {scale_factor} for batch size {current_batch_size}")
+        # Create scheduler
+        if config['training'].get('scheduler', {}).get('use_scheduler', False):
+            num_training_steps = len(train_loader) * config['training']['num_epochs']
+            num_warmup_steps = int(num_training_steps * config['training']['scheduler']['warmup_ratio'])
+            
+            self.scheduler = get_linear_schedule_with_warmup(
+                optimizer=self._optimizer,
+                num_warmup_steps=num_warmup_steps,
+                num_training_steps=num_training_steps
+            )
+            logger.info(
+                f"Created linear scheduler with warmup "
+                f"(warmup_steps={num_warmup_steps}, "
+                f"total_steps={num_training_steps})"
+            )
 
-    def compute_batch_metrics(
+    def compute_metrics(
         self,
         outputs: Dict[str, torch.Tensor],
-        batch: Dict[str, torch.Tensor],
-        device_batch: Dict[str, torch.Tensor]
+        batch: Dict[str, torch.Tensor]
     ) -> Dict[str, float]:
-        """Compute embedding-specific metrics."""
-        try:
-            # Get embedding metrics from metrics manager
-            metrics = metrics_manager.compute_embedding_metrics(outputs, batch)
-            
-            # Update best embedding loss if needed
-            if metrics['embedding_loss'] < self.best_embedding_loss:
-                self.best_embedding_loss = metrics['embedding_loss']
-            
-            return metrics
-            
-        except Exception as e:
-            logger.error(f"Error computing embedding metrics: {str(e)}")
-            logger.error(f"Output type: {type(outputs)}")
-            logger.error(f"Output keys: {outputs.keys() if isinstance(outputs, dict) else 'Not a dict'}")
-            logger.error(f"Batch type: {type(batch)}")
-            logger.error(f"Batch keys: {batch.keys() if isinstance(batch, dict) else 'Not a dict'}")
-            raise
+        """Compute metrics and track best values."""
+        metrics = super().compute_metrics(outputs, batch)
+        
+        # Update best metrics
+        if metrics['embedding_loss'] < self.best_embedding_loss:
+            self.best_embedding_loss = metrics['embedding_loss']
+        if metrics['accuracy'] > self.best_val_acc:
+            self.best_val_acc = metrics['accuracy']
+            if self.trial:
+                self.trial.set_user_attr('best_val_acc', self.best_val_acc)
+                self.trial.set_user_attr('epoch_metrics', self.metrics_logger.epoch_metrics)
+        
+        # Log metrics for debugging
+        logger.debug(
+            f"Batch Metrics:\n"
+            f"- Loss: {metrics['loss']:.4f}\n"
+            f"- PPL: {metrics.get('ppl', float('inf')):.2f}\n"
+            f"- Accuracy: {metrics['accuracy']:.4%}\n"
+            f"- Top-5 Accuracy: {metrics['top5_accuracy']:.4%}"
+        )
+        
+        return metrics
 
     def get_current_lr(self) -> float:
         """Get current learning rate from optimizer."""
@@ -103,3 +131,4 @@ class EmbeddingTrainer(get_base_trainer()):
         super().cleanup_memory(aggressive)
         if aggressive:
             self.best_embedding_loss = float('inf')
+            self.best_val_acc = 0.0

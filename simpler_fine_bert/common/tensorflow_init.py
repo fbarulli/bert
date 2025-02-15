@@ -6,13 +6,13 @@ import logging
 # Suppress TensorFlow logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # ERROR only
 
+# Initialize absl logging first
+from absl import logging as absl_logging
+absl_logging.set_verbosity(absl_logging.ERROR)
+
 # Try to initialize TensorFlow with proper settings
 try:
     import tensorflow as tf
-    
-    # Initialize logging
-    from absl import logging as absl_logging
-    absl_logging.set_verbosity(absl_logging.ERROR)
     
     # Configure TensorFlow
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)

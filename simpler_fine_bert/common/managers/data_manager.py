@@ -12,7 +12,7 @@ from transformers import PreTrainedTokenizerFast
 from torch.utils.data.dataloader import default_collate
 import threading
 
-from simpler_fine_bert.common.base_manager import BaseManager
+from simpler_fine_bert.common.managers.base_manager import BaseManager
 from simpler_fine_bert.common.managers import get_dataloader_manager
 from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
 
@@ -60,10 +60,10 @@ class DataManager(BaseManager):
             logger.error(traceback.format_exc())
             raise
 
-    def _initialize_process_local(self):
+    def _initialize_process_local(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize process-local attributes."""
         try:
-            super()._initialize_process_local()
+            super()._initialize_process_local(config)
             self._local.resources = None
             logger.info(f"DataManager initialized for process {self._local.pid}")
         except Exception as e:
@@ -217,11 +217,11 @@ class DataManager(BaseManager):
         config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Initialize process-local resources using shared datasets."""
-        self.ensure_initialized()
+        self.ensure_initialized(config)
         
         try:
             # Ensure all process resources are initialized first
-            ResourceInitializer.initialize_process()
+            ResourceInitializer.initialize_process(config)
             
             # Get or create shared datasets
             shared = self.init_shared_resources(config)

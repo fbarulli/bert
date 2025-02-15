@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional, Tuple
 import logging
 import os
+import traceback
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 
@@ -103,13 +104,14 @@ class ProcessResourceManager:
             # Get process-specific device using initialized cuda_manager
             device = cuda_manager.get_device()
 
-            # Create data manager instance for this process
-            data_mgr = DataManager()
+            # Get data manager instance from BaseManager registry
+            from simpler_fine_bert.common.managers import get_data_manager
+            data_mgr = get_data_manager()
             
             # Create and track resources
             self.resources = {
                 'device': device,
-                **data_mgr.create_resources(self.config)
+                **data_mgr.init_process_resources(self.config)
             }
             
             # Log created resources

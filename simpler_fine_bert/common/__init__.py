@@ -1,7 +1,6 @@
 """Common utilities and components."""
 
 # Direct imports that don't cause circular dependencies
-from simpler_fine_bert.common.managers.base_manager import BaseManager
 from simpler_fine_bert.common.utils import (
     setup_logging,
     seed_everything,

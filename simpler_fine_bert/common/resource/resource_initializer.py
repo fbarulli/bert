@@ -42,7 +42,8 @@ class ResourceInitializer:
             get_metrics_manager,
             get_amp_manager,
             get_tokenizer_manager,
-            get_dataloader_manager
+            get_dataloader_manager,
+            get_data_manager
         )
         
         cuda_manager = get_cuda_manager()
@@ -52,6 +53,7 @@ class ResourceInitializer:
         amp_manager = get_amp_manager()
         tokenizer_manager = get_tokenizer_manager()
         dataloader_manager = get_dataloader_manager()
+        data_manager = get_data_manager()
         
         # Define dependencies using manager classes
         return {
@@ -87,6 +89,11 @@ class ResourceInitializer:
                 manager_cls=dataloader_manager.__class__,
                 depends_on=[cuda_manager.__class__, tensor_manager.__class__, tokenizer_manager.__class__],
                 description="Data loading"
+            ),
+            data_manager.__class__: ManagerDependency(
+                manager_cls=data_manager.__class__,
+                depends_on=[dataloader_manager.__class__, tokenizer_manager.__class__],
+                description="Data management"
             )
         }
 
@@ -122,16 +129,17 @@ class ResourceInitializer:
         amp_manager = get_amp_manager()
         
         # Initialize CUDA first
+        cuda_manager.ensure_initialized(config)
         if is_cuda_available():
-            if not torch.cuda.is_initialized():
-                cuda_manager.ensure_initialized(config)
+            if torch.cuda.is_initialized():
                 logger.info("CUDA initialized successfully")
+                # Reset CUDA stats
+                clear_cuda_memory()
+                reset_cuda_stats()
             else:
-                logger.info("CUDA already initialized by parent process")
-                
-            # Reset CUDA stats
-            clear_cuda_memory()
-            reset_cuda_stats()
+                logger.warning("CUDA available but not initialized")
+        else:
+            logger.info("CUDA not available, running on CPU")
             
         # Initialize AMP right after CUDA
         amp_manager.ensure_initialized(config)

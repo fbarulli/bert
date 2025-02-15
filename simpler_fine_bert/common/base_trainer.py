@@ -339,6 +339,9 @@ class BaseTrainer:
     ) -> Dict[str, float]:
         """Train for one epoch."""
         try:
+            # Initialize validation metrics
+            self.current_val_metrics = {'loss': float('inf'), 'acc': 0.0}
+            
             pbar = tqdm(
                 self.train_loader,
                 desc=f"Epoch {epoch}/1 [Train]",
@@ -354,20 +357,26 @@ class BaseTrainer:
                         metrics = self.train_step(batch, optimizer)
                         train_metrics.append(metrics)
                         
-                        pbar.set_postfix({
-                            'loss': metrics['loss'],
-                            **{k:v for k,v in metrics.items() if k != 'loss'}
-                        })
+                        # Format metrics for display
+                        display_metrics = {
+                            'loss': f"{metrics['loss']:.4f}",
+                            'ppl': f"{metrics.get('ppl', float('inf')):.2f}",
+                            'acc': f"{metrics.get('accuracy', 0):.2%}",  # Use accuracy from metrics_manager
+                            'val_loss': f"{self.current_val_metrics['loss']:.4f}",
+                            'val_acc': f"{self.current_val_metrics.get('accuracy', 0):.2%}"  # Use accuracy from metrics_manager
+                        }
+                        
+                        pbar.set_postfix(display_metrics)
                         
                         if self.current_step % self.log_interval == 0:
                             self.log_metrics(metrics, 'train')
                         
                         if self.current_step % self.eval_interval == 0:
-                            val_metrics = self.validate()
-                            self.log_metrics(val_metrics, 'val')
+                            self.current_val_metrics = self.validate()
+                            self.log_metrics(self.current_val_metrics, 'val')
                             
-                            if val_metrics['loss'] < self.best_val_loss:
-                                self.best_val_loss = val_metrics['loss']
+                            if self.current_val_metrics['loss'] < self.best_val_loss:
+                                self.best_val_loss = self.current_val_metrics['loss']
                                 if not self.is_trial:
                                     self.save_model()
                         
@@ -401,7 +410,13 @@ class BaseTrainer:
         """Train for multiple epochs."""
         try:
             with record_function("train_setup"):
-                optimizer = self.create_optimizer()
+                # Use existing optimizer if created in __init__
+                optimizer = getattr(self, '_optimizer', None)
+                if optimizer is None:
+                    optimizer = self.create_optimizer()
+                # Use existing scheduler if created in __init__
+                scheduler = getattr(self, 'scheduler', None)
+                
                 logger.info("Starting training with profiling enabled" if self.use_profiler else "Starting training")
             
             for epoch in range(num_epochs):
@@ -418,6 +433,11 @@ class BaseTrainer:
                             self.best_val_loss = val_metrics['loss']
                             if not self.is_trial:
                                 self.save_model()
+                    
+                    # Step scheduler at end of epoch if it exists
+                    if scheduler is not None:
+                        scheduler.step()
+                        logger.debug(f"Stepped scheduler, new LR: {scheduler.get_last_lr()[0]:.2e}")
                     
                     with record_function("memory_cleanup"):
                         self.cleanup_memory()
@@ -506,20 +526,10 @@ class BaseTrainer:
         outputs: Union[Dict[str, torch.Tensor], 'transformers.modeling_outputs.ModelOutput'],
         batch: Dict[str, torch.Tensor]
     ) -> Dict[str, float]:
-        """Compute metrics from outputs."""
-        if hasattr(outputs, 'loss'):
-            loss = outputs.loss
-        elif isinstance(outputs, dict):
-            loss = outputs['loss']
-        else:
-            raise ValueError(f"Unexpected output type: {type(outputs)}")
-            
-        metrics = {
-            'loss': loss.item()
-        }
-        if hasattr(self, 'compute_task_metrics'):
-            metrics.update(self.compute_task_metrics(outputs, batch))
-        return metrics
+        """Compute metrics from outputs (deprecated - use metrics_manager directly)."""
+        from simpler_fine_bert.common.managers import get_metrics_manager
+        metrics_manager = get_metrics_manager()
+        return metrics_manager.compute_embedding_metrics(outputs, batch)
 
     def _setup_device(self) -> torch.device:
         """Setup device for training."""
@@ -571,28 +581,8 @@ class BaseTrainer:
             logger.error(traceback.format_exc())
 
     def plot_metrics(self) -> None:
-        """Plot training metrics."""
-        try:
-            metrics_dir = self.metrics_dir / 'metrics'
-            metrics_dir.mkdir(exist_ok=True)
-
-            plt.figure(figsize=(10, 6))
-            for phase in ['train', 'validation']:
-                losses = [m[phase]['loss'] for m in self.metrics_logger.epoch_metrics if phase in m]
-                if losses:
-                    plt.plot(losses, label=f'{phase} loss')
-            plt.xlabel('Epoch')
-            plt.ylabel('Loss')
-            plt.title('Training Results')
-            plt.legend()
-            plt.savefig(metrics_dir / 'training_results.png')
-            plt.close()
-
-            logger.info(f"Saved training results plot to {metrics_dir}")
-
-        except Exception as e:
-            logger.error(f"Error plotting metrics: {str(e)}")
-            logger.error(traceback.format_exc())
+        """Plot training metrics (deprecated - use trial_analyzer.plot_trial_curves instead)."""
+        pass
 
 class nullcontext:
     """Context manager that does nothing."""

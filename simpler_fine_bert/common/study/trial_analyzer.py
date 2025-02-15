@@ -234,18 +234,82 @@ class TrialAnalyzer:
         vis_dir = self.output_dir / 'visualizations'
         vis_dir.mkdir(parents=True, exist_ok=True)
         
-        # Plot loss curve
+        # Find best trial by validation accuracy
+        best_trial = max(valid_trials, key=lambda t: t.user_attrs.get('best_val_acc', 0))
+        logger.info(f"Best trial {best_trial.number} with val_acc: {best_trial.user_attrs.get('best_val_acc', 0):.4f}")
+        
+        # Plot metrics from best trial
+        metrics = best_trial.user_attrs.get('epoch_metrics', [])
+        if metrics:
+            epochs = range(len(metrics))
+            
+            plt.figure(figsize=(15, 10))
+            
+            # Plot loss
+            plt.subplot(2, 2, 1)
+            plt.plot(epochs, [m['train']['loss'] for m in metrics], 'b-', label='Train')
+            plt.plot(epochs, [m['validation']['loss'] for m in metrics], 'r-', label='Val')
+            plt.title('Loss', fontsize=12)
+            plt.xlabel('Epoch')
+            plt.ylabel('Loss')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            
+            # Plot accuracy
+            plt.subplot(2, 2, 2)
+            plt.plot(epochs, [m['train']['accuracy'] for m in metrics], 'b-', label='Train')
+            plt.plot(epochs, [m['validation']['accuracy'] for m in metrics], 'r-', label='Val')
+            plt.title('Accuracy', fontsize=12)
+            plt.xlabel('Epoch')
+            plt.ylabel('Accuracy')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            
+            # Plot perplexity
+            plt.subplot(2, 2, 3)
+            plt.plot(epochs, [m['train']['perplexity'] for m in metrics], 'b-', label='Train')
+            plt.plot(epochs, [m['validation']['perplexity'] for m in metrics], 'r-', label='Val')
+            plt.title('Perplexity', fontsize=12)
+            plt.xlabel('Epoch')
+            plt.ylabel('Perplexity')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            
+            plt.suptitle(f"{title} - Best Trial (#{best_trial.number}) Metrics", fontsize=14, y=1.02)
+            plt.tight_layout()
+            plt.savefig(vis_dir / 'best_trial_metrics.png', bbox_inches='tight')
+            plt.close()
+            
+        # Plot loss curve across all trials
         plt.figure(figsize=(12, 6))
         trial_numbers = [t.number for t in valid_trials]
         losses = [t.value for t in valid_trials]
+        val_accs = [t.user_attrs.get('best_val_acc', 0) for t in valid_trials]
         
-        plt.plot(trial_numbers, losses, 'b-', marker='o')
-        plt.title(f"{title} - Loss Curve", fontsize=14, pad=20)
-        plt.xlabel("Trial Number", fontsize=12)
-        plt.ylabel("Loss", fontsize=12)
+        fig, ax1 = plt.subplots(figsize=(12, 6))
+        
+        # Plot loss
+        ax1.plot(trial_numbers, losses, 'b-', marker='o', label='Loss')
+        ax1.set_xlabel('Trial Number', fontsize=12)
+        ax1.set_ylabel('Loss', color='b', fontsize=12)
+        ax1.tick_params(axis='y', labelcolor='b')
+        
+        # Plot validation accuracy on secondary y-axis
+        ax2 = ax1.twinx()
+        ax2.plot(trial_numbers, val_accs, 'r-', marker='s', label='Val Acc')
+        ax2.set_ylabel('Validation Accuracy', color='r', fontsize=12)
+        ax2.tick_params(axis='y', labelcolor='r')
+        
+        plt.title(f"{title} - Trial Performance", fontsize=14, pad=20)
+        
+        # Add legend
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+        
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        plt.savefig(vis_dir / 'loss_curve.png')
+        plt.savefig(vis_dir / 'trial_performance.png')
         plt.close()
         
         # Plot parameter importance if we have enough trials

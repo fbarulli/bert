@@ -56,7 +56,7 @@ def get_tokenizer_manager():
     return tokenizer_manager
 
 def get_worker_manager():
-    from simpler_fine_bert.common.worker_manager import worker_manager
+    from simpler_fine_bert.common.managers.worker_manager import worker_manager
     return worker_manager
 
 def get_wandb_manager():

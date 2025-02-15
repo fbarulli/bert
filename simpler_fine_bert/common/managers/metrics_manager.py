@@ -116,31 +116,55 @@ class MetricsManager(BaseManager):
             logits = outputs['logits']  # [batch_size, seq_len, vocab_size]
             labels = batch['labels']  # [batch_size, seq_len]
             
-            # Calculate loss
+            # Calculate loss on masked tokens only
             loss = self.get_loss_fct()(logits.view(-1, logits.size(-1)), labels.view(-1))
             
-            # Normalize loss by number of masked tokens
-            num_masked = (labels != -100).sum().item()
-            if num_masked > 0:
-                normalized_loss = loss * labels.size(0) * labels.size(1) / num_masked
-            else:
-                normalized_loss = loss
+            # Get predictions and compute accuracy
+            predictions = logits.argmax(dim=-1)  # [batch_size, seq_len]
+            mask = labels != -100  # [batch_size, seq_len]
             
-            # Compute accuracy metrics
-            accuracy_metrics = self.compute_accuracy(logits, labels, k=5)
+            # Compute accuracy only on masked tokens
+            correct = (predictions[mask] == labels[mask]).float().sum()
+            total = mask.sum()
+            accuracy = (correct / total).item() if total > 0 else 0.0
+            
+            # Compute top-k accuracy
+            _, top_k = logits.topk(5, dim=-1)  # [batch_size, seq_len, 5]
+            correct_k = labels.unsqueeze(-1).expand_as(top_k) == top_k
+            correct_k = correct_k & mask.unsqueeze(-1)
+            top5_accuracy = (correct_k.any(dim=-1).float().sum() / total).item() if total > 0 else 0.0
+            
+            # Log detailed stats for debugging
+            logger.debug(
+                f"Metrics Stats:\n"
+                f"- Total tokens: {labels.numel()}\n"
+                f"- Masked tokens: {total.item()}\n"
+                f"- Correct predictions: {correct.item()}\n"
+                f"- Raw loss: {loss.item():.4f}\n"
+                f"- Accuracy: {accuracy:.4%}\n"
+                f"- Top-5 Accuracy: {top5_accuracy:.4%}"
+            )
+            
+            # Calculate perplexity
+            try:
+                ppl = math.exp(loss.item())
+                logger.debug(f"Calculated perplexity: exp({loss.item()}) = {ppl:.2f}")
+            except OverflowError:
+                logger.warning(f"Overflow computing perplexity for loss {loss.item()}")
+                ppl = float('inf')
             
             metrics = {
-                'loss': normalized_loss.item(),  # Use normalized loss for both
-                'embedding_loss': normalized_loss.item(),  # Keep both for compatibility
-                'perplexity': self.compute_perplexity(normalized_loss),
-                'accuracy': accuracy_metrics['top1'],
-                'top5_accuracy': accuracy_metrics['top5']
+                'loss': loss.item(),
+                'embedding_loss': loss.item(),
+                'ppl': ppl,  # Use consistent key name
+                'accuracy': accuracy,
+                'top5_accuracy': top5_accuracy
             }
             
             logger.debug(
                 f"Embedding Metrics:\n"
                 f"- Loss: {metrics['loss']:.4f}\n"
-                f"- Perplexity: {metrics['perplexity']:.2f}\n"
+                f"- Perplexity: {metrics['ppl']:.2f}\n"
                 f"- Accuracy: {metrics['accuracy']:.4f}\n"
                 f"- Top-5 Accuracy: {metrics['top5_accuracy']:.4f}"
             )
@@ -153,7 +177,7 @@ class MetricsManager(BaseManager):
             return {
                 'loss': float('inf'),
                 'embedding_loss': float('inf'),
-                'perplexity': float('inf'),
+                'ppl': float('inf'),
                 'accuracy': 0.0,
                 'top5_accuracy': 0.0
             }
@@ -211,10 +235,11 @@ class MetricsManager(BaseManager):
             }
     
     def compute_perplexity(self, loss: torch.Tensor) -> float:
-        """Compute perplexity from loss."""
+        """Compute perplexity from loss without capping."""
         try:
-            return math.exp(min(20, loss.item()))
+            return math.exp(loss.item())
         except OverflowError:
+            logger.warning(f"Overflow computing perplexity for loss {loss.item()}")
             return float('inf')
 
 metrics_manager = MetricsManager()

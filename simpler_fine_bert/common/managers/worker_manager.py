@@ -1,4 +1,4 @@
-# simpler_fine_bert/worker_manager.py
+# simpler_fine_bert/common/managers/worker_manager.py
 
 import logging
 import os
@@ -238,7 +238,7 @@ class WorkerManager:
                     output_path = Path(trial_data['output_path'])
                     
                     # Initialize all process resources
-                    from simpler_fine_bert.resource_initializer import ResourceInitializer
+                    from simpler_fine_bert.common.resource.resource_initializer import ResourceInitializer
                     ResourceInitializer.initialize_process()
                     logger.info(f"Process resources initialized for {current_pid}")
                     

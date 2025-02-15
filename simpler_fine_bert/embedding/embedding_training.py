@@ -50,8 +50,10 @@ def train_embeddings(
         num_epochs = config['training']['num_epochs']
         trainer.train(num_epochs)
         
-        # Plot training metrics
-        trainer.plot_metrics()
+        # Plot best trial metrics
+        from simpler_fine_bert.common.study.trial_analyzer import TrialAnalyzer
+        analyzer = TrialAnalyzer(Path(metrics_dir) if metrics_dir else Path.cwd())
+        analyzer.plot_trial_curves([trial] if trial else [], "Embedding Training")
         
         # Clean up resources
         trainer.cleanup_memory(aggressive=True)

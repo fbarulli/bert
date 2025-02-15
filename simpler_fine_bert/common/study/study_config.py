@@ -4,7 +4,7 @@ import logging
 from typing import Dict, Any
 import optuna
 from optuna.samplers import TPESampler
-from simpler_fine_bert.common.parameter_manager import ParameterManager
+from simpler_fine_bert.common.managers.parameter_manager import ParameterManager
 
 logger = logging.getLogger(__name__)
 
