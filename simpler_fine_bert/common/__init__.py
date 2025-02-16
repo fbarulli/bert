@@ -15,63 +15,63 @@ def get_base_trainer():
     return BaseTrainer
 
 def get_amp_manager():
-    from simpler_fine_bert.common.amp_manager import amp_manager
+    from simpler_fine_bert.common.managers.amp_manager import amp_manager
     return amp_manager
 
 def get_batch_manager():
-    from simpler_fine_bert.common.batch_manager import batch_manager
+    from simpler_fine_bert.common.managers.batch_manager import batch_manager
     return batch_manager
 
 def get_cuda_manager():
-    from simpler_fine_bert.common.cuda_manager import cuda_manager
+    from simpler_fine_bert.common.managers.cuda_manager import cuda_manager
     return cuda_manager
 
 def get_data_manager():
-    from simpler_fine_bert.common.data_manager import data_manager
+    from simpler_fine_bert.common.managers.data_manager import data_manager
     return data_manager
 
 def get_dataloader_manager():
-    from simpler_fine_bert.common.dataloader_manager import dataloader_manager
+    from simpler_fine_bert.common.managers.dataloader_manager import dataloader_manager
     return dataloader_manager
 
 def get_directory_manager():
-    from simpler_fine_bert.common.directory_manager import directory_manager
+    from simpler_fine_bert.common.managers.directory_manager import directory_manager
     return directory_manager
 
-def get_metrics_logger():
-    from simpler_fine_bert.common.metrics_logger import metrics_logger
-    return metrics_logger
+def get_metrics_manager():
+    from simpler_fine_bert.common.managers.metrics_manager import metrics_manager
+    return metrics_manager
 
 def get_model_manager():
-    from simpler_fine_bert.common.model_manager import model_manager
+    from simpler_fine_bert.common.managers.model_manager import model_manager
     return model_manager
 
 def get_optuna_manager():
-    from simpler_fine_bert.common.optuna_manager import OptunaManager
+    from simpler_fine_bert.common.managers.optuna_manager import OptunaManager
     return OptunaManager
 
 def get_parameter_manager():
-    from simpler_fine_bert.common.parameter_manager import parameter_manager
+    from simpler_fine_bert.common.managers.parameter_manager import parameter_manager
     return parameter_manager
 
 def get_resource_manager():
-    from simpler_fine_bert.common.resource_manager import resource_manager
+    from simpler_fine_bert.common.managers.resource_manager import resource_manager
     return resource_manager
 
 def get_storage_manager():
-    from simpler_fine_bert.common.storage_manager import storage_manager
+    from simpler_fine_bert.common.managers.storage_manager import storage_manager
     return storage_manager
 
 def get_tokenizer_manager():
-    from simpler_fine_bert.common.tokenizer_manager import tokenizer_manager
+    from simpler_fine_bert.common.managers.tokenizer_manager import tokenizer_manager
     return tokenizer_manager
 
 def get_wandb_manager():
-    from simpler_fine_bert.common.wandb_manager import WandbManager
+    from simpler_fine_bert.common.managers.wandb_manager import WandbManager
     return WandbManager
 
 def get_worker_manager():
-    from simpler_fine_bert.common.worker_manager import worker_manager
+    from simpler_fine_bert.common.managers.worker_manager import worker_manager
     return worker_manager
 
 def get_tensor_manager():

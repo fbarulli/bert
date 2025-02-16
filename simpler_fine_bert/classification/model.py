@@ -5,12 +5,7 @@ import torch
 import torch.nn as nn
 from transformers import BertPreTrainedModel, BertModel, BertConfig
 from typing import Dict, Any, Optional, Tuple, Union
-from simpler_fine_bert.common import get_cuda_manager, get_batch_manager, get_tensor_manager
-
-# Get manager instances
-cuda_manager = get_cuda_manager()
-batch_manager = get_batch_manager()
-tensor_manager = get_tensor_manager()
+from simpler_fine_bert.common.managers import get_batch_manager
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +97,9 @@ class ClassificationBert(BertPreTrainedModel):
         if labels is not None:
             inputs['labels'] = labels
             
-        inputs = batch_manager.prepare_batch(inputs, self.device)
+            # Get batch manager instance when needed
+            batch_manager = get_batch_manager()
+            inputs = batch_manager.prepare_batch(inputs, self.device)
         
         # Get BERT outputs
         outputs = self.bert(
