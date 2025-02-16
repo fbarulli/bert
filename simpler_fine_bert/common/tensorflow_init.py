@@ -23,13 +23,9 @@ try:
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
     
-    # Note about CPU instructions
+    # Successfully initialized TensorFlow
     logger = logging.getLogger(__name__)
-    logger.info(
-        "Note: To enable AVX2 and FMA instructions, TensorFlow needs to be rebuilt "
-        "with appropriate compiler flags. This warning can be safely ignored if "
-        "you're primarily using PyTorch."
-    )
+    logger.debug("TensorFlow initialized successfully")
 except ImportError:
     # TensorFlow not installed, which is fine since we primarily use PyTorch
     pass

@@ -4,10 +4,11 @@ import logging
 from typing import Dict, Any, Optional
 import torch
 from torch.utils.data import DataLoader
-from simpler_fine_bert.common.managers import get_resource_manager, get_wandb_manager
+from simpler_fine_bert.common import get_resource_manager, get_wandb_manager, get_metrics_manager
 
 # Get manager instances
 resource_manager = get_resource_manager()
+metrics_manager = get_metrics_manager()
 
 # Optional wandb support
 try:
@@ -64,8 +65,8 @@ class ClassificationTrainer(get_base_trainer()):
     ) -> Dict[str, float]:
         """Compute classification-specific metrics."""
         try:
-            # Get classification metrics from resource manager
-            metrics = resource_manager.compute_classification_metrics(outputs, batch)
+            # Get classification metrics from metrics manager
+            metrics = metrics_manager.compute_classification_metrics(outputs, batch)
             
             # Update best accuracy if needed
             if metrics['accuracy'] > self.best_accuracy:

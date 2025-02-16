@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from transformers import get_linear_schedule_with_warmup
 
 from simpler_fine_bert.common.metrics_logger import MetricsLogger
-from simpler_fine_bert.common.managers import get_storage_manager
+from simpler_fine_bert.common import get_storage_manager
 
 # Get manager instance
 storage_manager = get_storage_manager()
@@ -47,7 +47,7 @@ class BaseTrainer:
     ):
         """Initialize trainer."""
         # Import managers at runtime
-        from simpler_fine_bert.common.managers import (
+        from simpler_fine_bert.common import (
             get_cuda_manager,
             get_batch_manager,
             get_amp_manager,
@@ -532,7 +532,7 @@ class BaseTrainer:
         batch: Dict[str, torch.Tensor]
     ) -> Dict[str, float]:
         """Compute metrics from outputs (deprecated - use metrics_manager directly)."""
-        from simpler_fine_bert.common.managers import get_metrics_manager
+        from simpler_fine_bert.common import get_metrics_manager
         metrics_manager = get_metrics_manager()
         return metrics_manager.compute_embedding_metrics(outputs, batch)
 

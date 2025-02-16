@@ -4,7 +4,7 @@ import logging
 from typing import Dict, Any
 import optuna
 from optuna.samplers import TPESampler
-from simpler_fine_bert.common.managers.parameter_manager import ParameterManager
+from simpler_fine_bert.common import get_parameter_manager
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,8 @@ class StudyConfig:
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.param_manager = ParameterManager(config)
+        self.param_manager = get_parameter_manager()
+        self.param_manager.base_config = config
         self.sampler = self._create_sampler()
         
         # Log configuration

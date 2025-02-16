@@ -42,7 +42,7 @@ def train_model(config: Dict[str, Any]) -> None:
             logger.info("\n=== Starting Embedding Training ===")
             
             # Get managers
-            from simpler_fine_bert.common.managers import get_resource_manager, get_model_manager
+            from simpler_fine_bert.common import get_resource_manager, get_model_manager
             resource_manager = get_resource_manager()
             model_manager = get_model_manager()
             
@@ -94,7 +94,7 @@ def initialize_managers(config: Dict[str, Any]) -> None:
     """Initialize all managers with config."""
     try:
         # Import managers at runtime
-        from simpler_fine_bert.common.managers import (
+        from simpler_fine_bert.common import (
             get_resource_manager,
             get_parameter_manager,
             get_worker_manager,
@@ -126,6 +126,11 @@ def initialize_managers(config: Dict[str, Any]) -> None:
         model_manager.config = config
         worker_manager.n_jobs = config['training']['n_jobs']
         storage_manager.storage_dir = Path(config['output']['dir']) / 'storage'
+        
+        # Initialize tensor manager after CUDA setup
+        from simpler_fine_bert.common import get_tensor_manager
+        tensor_manager = get_tensor_manager()
+        tensor_manager._initialize_process_local(config)
         
         logger.info("All managers initialized with config")
         
