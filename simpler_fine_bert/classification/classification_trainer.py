@@ -4,11 +4,11 @@ import logging
 from typing import Dict, Any, Optional
 import torch
 from torch.utils.data import DataLoader
-from simpler_fine_bert.common import get_resource_manager, get_wandb_manager
-from simpler_fine_bert.common.managers.metrics_manager import metrics_manager
+from simpler_fine_bert.common import get_resource_manager, get_wandb_manager, get_metrics_manager
 
 # Get manager instances
 resource_manager = get_resource_manager()
+metrics_manager = get_metrics_manager()
 
 # Optional wandb support
 try:

@@ -74,6 +74,10 @@ def get_worker_manager():
     from simpler_fine_bert.common.worker_manager import worker_manager
     return worker_manager
 
+def get_tensor_manager():
+    from simpler_fine_bert.common.managers.tensor_manager import tensor_manager
+    return tensor_manager
+
 # Study components
 def get_study_components():
     from simpler_fine_bert.common.study.study_config import StudyConfig
