@@ -9,24 +9,6 @@ from simpler_fine_bert.common.utils import (
     clear_memory
 )
 
-# Import all manager getters
-from simpler_fine_bert.common.managers import (
-    get_amp_manager,
-    get_batch_manager,
-    get_cuda_manager,
-    get_data_manager,
-    get_dataloader_manager,
-    get_directory_manager,
-    get_metrics_manager,
-    get_model_manager,
-    get_parameter_manager,
-    get_resource_manager,
-    get_storage_manager,
-    get_tensor_manager,
-    get_tokenizer_manager,
-    get_worker_manager
-)
-
 # Base trainer getter
 def get_base_trainer():
     from simpler_fine_bert.common.base_trainer import BaseTrainer
