@@ -4,10 +4,7 @@ import logging
 from typing import Tuple, Optional, List, Set, Dict
 from transformers import PreTrainedTokenizerFast
 
-from simpler_fine_bert.common.managers import (
-    get_tensor_manager,
-    get_tokenizer_manager
-)
+from simpler_fine_bert.common import get_tensor_manager, get_tokenizer_manager
 
 # Get manager instances
 tensor_manager = get_tensor_manager()

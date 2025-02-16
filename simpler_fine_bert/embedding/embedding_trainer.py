@@ -5,14 +5,13 @@ import torch
 from typing import Dict, Any, Optional
 from torch.utils.data import DataLoader
 from transformers import get_linear_schedule_with_warmup
-from simpler_fine_bert.common.managers import get_metrics_manager
+from simpler_fine_bert.common import get_metrics_manager, get_wandb_manager
 
 # Get manager instance
 metrics_manager = get_metrics_manager()
 
 # Optional wandb support
 try:
-    from simpler_fine_bert.common.managers import get_wandb_manager
     WandbManager = get_wandb_manager().__class__
 except ImportError:
     WandbManager = None

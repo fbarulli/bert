@@ -5,7 +5,7 @@ from simpler_fine_bert.common.config_utils import load_config
 from simpler_fine_bert.common.utils import setup_logging, seed_everything, create_optimizer
 
 # Manager access
-from simpler_fine_bert.common.managers import (
+from simpler_fine_bert.common import (
     get_amp_manager,
     get_batch_manager,
     get_cuda_manager,
